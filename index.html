@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NMFS OCIO Directory</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'nmfs-blue': '#003185',
+                        'nmfs-light-blue': '#0085ca'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #003185;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="min-h-screen flex items-center justify-center bg-gray-50">
+        <div class="text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <div class="text-lg text-nmfs-blue">Loading NMFS OCIO Organization Data...</div>
+        </div>
+    </div>
+
+    <!-- Error Screen -->
+    <div id="error-screen" class="min-h-screen flex items-center justify-center bg-gray-50 hidden">
+        <div class="text-center p-6 bg-white rounded-lg shadow-lg">
+            <div class="text-red-600 text-lg font-semibold mb-2">Error Loading Data</div>
+            <div id="error-message" class="text-gray-600"></div>
+            <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-nmfs-blue text-white rounded hover:bg-blue-800">
+                Retry
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="main-app" class="hidden">
+        <!-- Header -->
+        <div class="bg-nmfs-blue text-white">
+            <div class="max-w-7xl mx-auto px-6 py-8">
+                <h1 class="text-3xl font-bold text-center">
+                    NMFS Office of the Chief Information Officer
+                </h1>
+                <p class="text-center text-blue-100 mt-2">Organization Directory</p>
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-6 py-8">
+            <!-- CIO Section -->
+            <div id="cio-section" class="mb-8 hidden">
+                <h2 class="text-2xl font-bold text-nmfs-blue mb-4 text-center">Chief Information Officer</h2>
+                <div id="cio-card" class="max-w-2xl mx-auto mb-6"></div>
+
+                <!-- Deputy CIOs -->
+                <div id="deputy-cios-section" class="mb-4 hidden">
+                    <div id="deputy-cios-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto"></div>
+                </div>
+            </div>
+
+            <!-- Divisions Section -->
+            <div id="divisions-section" class="hidden">
+                <h2 class="text-2xl font-bold text-nmfs-blue mb-6 text-center">Divisions</h2>
+
+                <!-- Division Tabs -->
+                <div id="division-tabs" class="flex flex-wrap justify-center mb-8 border-b border-gray-200"></div>
+
+                <!-- Active Division Content -->
+                <div id="division-content" class="bg-white rounded-lg shadow-lg p-6 hidden"></div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-nmfs-blue text-white text-center py-4 mt-12">
+            <p class="text-sm">
+                NOAA | NMFS Office of the Chief Information Officer
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let orgData = null;
+        let activeDivision = null;
+        let expandedPrograms = {};
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+        });
+
+        // Load organization data
+        function loadData() {
+            // Call Google Apps Script function to get employee data
+            google.script.run
+                .withSuccessHandler(function(employees) {
+                    try {
+                        const organizedData = organizeEmployeeData(employees);
+                        console.log("Organized data:", organizedData);
+
+                        // Remove CIO, DDCIO1, DDCIO2 divisions
+                        const filteredDivisions = organizedData?.divisions?.filter(
+                            div => !['CIO', 'DDCIO1', 'DDCIO2'].includes(div.name?.toUpperCase())
+                        ) || [];
+
+                        // Add dummy position descriptions for leadership roles
+                        const enhancedData = {
+                            ...organizedData,
+                            divisions: filteredDivisions,
+                            // Add position description to CIO
+                            cio: organizedData.cio ? {
+                                ...organizedData.cio,
+                                positionDescription: "Leads the strategic direction and oversight of all information technology operations, ensuring alignment with organizational goals and federal IT requirements."
+                            } : null,
+                            // Add position descriptions to Deputy CIOs
+                            deputyCIOs: organizedData.deputyCIOs?.map((deputy, index) => ({
+                                ...deputy,
+                                positionDescription: `Supports the CIO in managing IT operations and strategic initiatives. Provides leadership in key technology areas including cybersecurity, data management, and digital transformation.`
+                            })) || []
+                        };
+
+                        // Add position descriptions to Division Directors
+                        enhancedData.divisions = filteredDivisions.map(division => ({
+                            ...division,
+                            director: division.director ? {
+                                ...division.director,
+                                positionDescription: `Provides executive leadership and strategic direction for the ${division.name} division. Oversees program management, resource allocation, and ensures delivery of mission-critical services.`
+                            } : null
+                        }));
+
+                        orgData = enhancedData;
+                        hideLoading();
+                        renderApplication();
+
+                        if (filteredDivisions.length > 0) {
+                            activeDivision = 0;
+                            renderDivisionContent();
+                        }
+                    } catch (err) {
+                        showError(err.message);
+                    }
+                })
+                .withFailureHandler(function(error) {
+                    showError('Failed to load data: ' + error.message);
+                })
+                .getEmployeeData();
+        }
+
+        // Organize employee data (client-side processing)
+        function organizeEmployeeData(employees) {
+            const cio = employees.find(emp =>
+                emp.title && emp.title.toLowerCase().includes('chief information officer') &&
+                !emp.title.toLowerCase().includes('deputy')
+            );
+
+            const deputyCIOs = employees.filter(emp =>
+                emp.title && emp.title.toLowerCase().includes('deputy cio')
+            );
+
+            const divisions = {};
+
+            employees.forEach(employee => {
+                if (employee.division && employee.division.trim()) {
+                    let divisionName = employee.division.trim();
+
+                    // Extract value after CIO/ and before the second /
+                    if (divisionName.startsWith('CIO/')) {
+                        const parts = divisionName.split('/');
+                        if (parts.length >= 2) {
+                            // Remove trailing space from the division name after CIO/
+                            divisionName = parts[1].replace(/\s+$/, '');
+                        } else {
+                            divisionName = 'CIO';
+                        }
+                    }
+
+                    if (!divisions[divisionName]) {
+                        divisions[divisionName] = {
+                            name: divisionName,
+                            director: null,
+                            programs: {},
+                            employees: []
+                        };
+                    }
+
+                    if (employee.title && employee.title.toLowerCase().includes('director')) {
+                        divisions[divisionName].director = employee;
+                    }
+
+                    if (employee.program && employee.program.trim()) {
+                        const programName = employee.program.trim();
+
+                        if (!divisions[divisionName].programs[programName]) {
+                            divisions[divisionName].programs[programName] = {
+                                name: programName,
+                                lead: null,
+                                employees: []
+                            };
+                        }
+
+                        if (employee.title && employee.title.toLowerCase().includes('lead')) {
+                            divisions[divisionName].programs[programName].lead = employee;
+                        } else {
+                            divisions[divisionName].programs[programName].employees.push(employee);
+                        }
+                    } else {
+                        divisions[divisionName].employees.push(employee);
+                    }
+                }
+            });
+
+            return {
+                cio,
+                deputyCIOs,
+                divisions: Object.values(divisions),
+                allEmployees: employees
+            };
+        }
+
+        // Utility functions
+        function getEmploymentStatus(employee) {
+            const federalCodes = ['GS', 'FED', 'FEDERAL'];
+            const status = employee.empl_code || '';
+            return federalCodes.some(code => status.toUpperCase().includes(code)) ? 'federal' : 'contractor';
+        }
+
+        function createEmploymentBadge(employee) {
+            const status = getEmploymentStatus(employee);
+            return `<span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
+                status === 'federal'
+                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                    : 'bg-orange-100 text-orange-800 border border-orange-200'
+            }">
+                ${status === 'federal' ? 'Federal' : 'Contractor'}
+            </span>`;
+        }
+
+        // UI rendering functions
+        function hideLoading() {
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('fade-in');
+        }
+
+        function showError(message) {
+            document.getElementById('loading-screen').style.display = 'none';
+            document.getElementById('error-screen').classList.remove('hidden');
+            document.getElementById('error-message').textContent = message;
+        }
+
+        function renderApplication() {
+            // Render CIO section
+            if (orgData?.cio) {
+                document.getElementById('cio-section').classList.remove('hidden');
+                document.getElementById('cio-card').innerHTML = createLeadershipCard(orgData.cio, 'CIO');
+
+                // Render Deputy CIOs
+                if (orgData?.deputyCIOs && orgData.deputyCIOs.length > 0) {
+                    document.getElementById('deputy-cios-section').classList.remove('hidden');
+                    const deputyGrid = document.getElementById('deputy-cios-grid');
+                    deputyGrid.innerHTML = orgData.deputyCIOs.map(deputy =>
+                        createLeadershipCard(deputy, 'Deputy CIO')
+                    ).join('');
+                }
+            }
+
+            // Render Divisions section
+            if (orgData?.divisions) {
+                document.getElementById('divisions-section').classList.remove('hidden');
+                renderDivisionTabs();
+                renderDivisionContent();
+            }
+        }
+
+        function renderDivisionTabs() {
+            const tabsContainer = document.getElementById('division-tabs');
+            tabsContainer.innerHTML = orgData.divisions.map((division, index) =>
+                `<button
+                    onclick="setActiveDivision(${index})"
+                    class="px-6 py-3 font-medium text-sm rounded-t-lg mr-1 transition-colors ${
+                        activeDivision === index
+                            ? 'bg-nmfs-blue text-white border-b-2 border-nmfs-blue'
+                            : 'bg-white text-nmfs-blue hover:bg-blue-50 border border-gray-200 border-b-0'
+                    }"
+                >
+                    ${division.name}
+                </button>`
+            ).join('');
+        }
+
+        function renderDivisionContent() {
+            if (activeDivision === null || !orgData.divisions[activeDivision]) return;
+
+            const division = orgData.divisions[activeDivision];
+            const contentContainer = document.getElementById('division-content');
+
+            let content = `<div class="mb-6">
+                <h3 class="text-xl font-bold text-nmfs-blue mb-4">${division.name}</h3>`;
+
+            // Division Director
+            if (division.director) {
+                content += `<div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-700 mb-3">Division Director</h4>
+                    ${createLeadershipCard(division.director, 'Director')}
+                </div>`;
+            }
+
+            // Programs
+            const programs = Object.values(division.programs);
+            if (programs.length > 0) {
+                content += `<div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-700 mb-4">Programs</h4>
+                    <div class="space-y-4">
+                        ${programs.map((program, pIndex) => createProgramCard(program, pIndex)).join('')}
+                    </div>
+                </div>`;
+            }
+
+            // Division-level Employees
+            if (division.employees.length > 0) {
+                content += `<div>
+                    <h4 class="text-lg font-semibold text-gray-700 mb-4">Division Staff</h4>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                        ${division.employees.map(employee => createEmployeeCard(employee)).join('')}
+                    </div>
+                </div>`;
+            }
+
+            content += `</div>`;
+
+            contentContainer.innerHTML = content;
+            contentContainer.classList.remove('hidden');
+        }
+
+        function createLeadershipCard(person, role, showDescription = true) {
+            return `<div class="bg-white border-l-4 border-nmfs-blue p-4 rounded-lg shadow-sm">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-nmfs-blue">
+                            ${person.firstName} ${person.lastName}
+                        </h3>
+                        <p class="text-nmfs-light-blue font-medium text-sm mb-1">${person.title}</p>
+                        <p class="text-gray-600 text-sm mb-2">${person.email}</p>
+                        <div class="mb-2">
+                            ${createEmploymentBadge(person)}
+                        </div>
+                        ${showDescription && person.positionDescription ?
+                            `<p class="text-gray-700 text-sm italic mt-2 p-2 bg-gray-50 rounded">
+                                ${person.positionDescription}
+                            </p>` : ''
+                        }
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function createEmployeeCard(employee, isLead = false) {
+            return `<div class="bg-white p-3 rounded-lg border shadow-sm ${
+                isLead ? 'border-nmfs-light-blue bg-blue-50' : 'border-gray-200'
+            }">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h4 class="font-semibold ${isLead ? 'text-nmfs-blue' : 'text-gray-800'}">
+                            ${employee.firstName} ${employee.lastName}
+                        </h4>
+                        <p class="text-gray-600 text-sm mb-1">${employee.title}</p>
+                        <p class="text-gray-500 text-xs mb-2">${employee.email}</p>
+                        <div class="flex items-center gap-2">
+                            ${createEmploymentBadge(employee)}
+                            ${isLead ?
+                                `<span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium bg-nmfs-light-blue text-white">
+                                    Program Lead
+                                </span>` : ''
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function createProgramCard(program, pIndex) {
+            const key = `${activeDivision}-${program.name}`;
+            const isExpanded = expandedPrograms[key];
+
+            return `<div class="border border-gray-200 rounded-lg">
+                <!-- Program Header -->
+                <button
+                    onclick="toggleProgram('${activeDivision}', '${program.name}')"
+                    class="w-full p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-t-lg flex items-center justify-between"
+                >
+                    <h5 class="font-semibold text-nmfs-blue">${program.name}</h5>
+                    <svg
+                        class="w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+
+                <!-- Program Content -->
+                ${isExpanded ? `<div class="p-4 border-t border-gray-200">
+                    ${program.lead ?
+                        `<div class="mb-4">
+                            <h6 class="text-sm font-medium text-gray-600 mb-2">Program Lead</h6>
+                            ${createEmployeeCard(program.lead, true)}
+                        </div>` : ''
+                    }
+
+                    ${program.employees.length > 0 ?
+                        `<div>
+                            <h6 class="text-sm font-medium text-gray-600 mb-2">Team Members</h6>
+                            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+                                ${program.employees.map(employee => createEmployeeCard(employee)).join('')}
+                            </div>
+                        </div>` : ''
+                    }
+                </div>` : ''}
+            </div>`;
+        }
+
+        // Event handlers
+        function setActiveDivision(index) {
+            activeDivision = index;
+            renderDivisionTabs();
+            renderDivisionContent();
+        }
+
+        function toggleProgram(divisionIndex, programName) {
+            const key = `${divisionIndex}-${programName}`;
+            expandedPrograms[key] = !expandedPrograms[key];
+            renderDivisionContent();
+        }
+    </script>
+</body>
+</html>
