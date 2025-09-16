@@ -360,7 +360,6 @@ export default function Home() {
 						{/* Deputy CIOs under CIO */}
 						{orgData?.deputyCIOs && orgData.deputyCIOs.length > 0 && (
 							<div className="mb-4">
-								<h3 className="text-lg font-semibold text-[#003185] mb-2 text-center">Deputy Chief Information Officers</h3>
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
 									{orgData.deputyCIOs.map((deputy, index) => (
 										<LeadershipCard key={index} person={deputy} role="Deputy CIO" />
