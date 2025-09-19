@@ -49,7 +49,7 @@
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+<body class="bg-white min-h-screen flex flex-col">
 
     <!-- Loading Screen -->
     <div id="loading-screen" class="min-h-screen flex items-center justify-center bg-gray-50">
@@ -71,10 +71,10 @@
     </div>
 
     <!-- Main Application -->
-    <div id="main-app" class="hidden">
+    <div id="main-app" class="hidden min-h-screen flex flex-col">
         <!-- Header -->
         <div class="bg-nmfs-blue text-white">
-            <div class="max-w-7xl mx-auto px-6 py-8">
+            <div class="max-w-6xl mx-auto px-6 py-8">
                 <h1 class="text-3xl font-bold text-center">
                     NMFS Office of the Chief Information Officer
                 </h1>
@@ -82,43 +82,46 @@
             </div>
         </div>
 
-        <div class="max-w-7xl mx-auto px-6 py-8">
+        <div class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
             <!-- CIO Section -->
-            <div id="cio-section" class="mb-8 hidden">
-                <h2 class="text-2xl font-bold text-nmfs-blue mb-4 text-center">Chief Information Officer</h2>
-                <div id="cio-card" class="max-w-2xl mx-auto mb-6"></div>
+            <div id="cio-section" class="mb-8 flex flex-col items-center">
+                <div class="text-sm font-medium text-gray-600 mb-2 text-center">Chief Information Officer</div>
+                <div id="cio-name" class="text-xl font-semibold text-gray-900 mb-4 text-center">Chief Information Officer Name</div>
+                <div class="border-b border-gray-200 w-full"></div>
+            </div>
 
-                <!-- Deputy CIOs -->
-                <div id="deputy-cios-section" class="mb-4 hidden">
-                    <div id="deputy-cios-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto"></div>
+            <!-- Deputy CIO Section -->
+            <div id="deputy-cio-section" class="mb-8 flex flex-col items-center">
+                <div id="deputy-cio-container" class="flex flex-wrap justify-center gap-10 text-lg font-semibold text-gray-900 mb-4">
+                    <span id="deputy-cio-name">Deputy CIO Name</span>
                 </div>
+                <div class="border-b border-gray-200 w-full"></div>
             </div>
 
             <!-- Divisions Section -->
             <div id="divisions-section" class="hidden">
-                <h2 class="text-2xl font-bold text-nmfs-blue mb-6 text-center">Divisions</h2>
-
                 <!-- Division Tabs -->
-                <div id="division-tabs" class="flex flex-wrap justify-center mb-8 border-b border-gray-200"></div>
+                <div id="division-tabs" class="flex flex-wrap gap-2 mb-8 justify-center"></div>
 
                 <!-- Active Division Content -->
-                <div id="division-content" class="bg-white rounded-lg shadow-lg p-6 hidden"></div>
+                <div id="division-content" class="hidden"></div>
             </div>
         </div>
 
         <!-- Footer -->
-        <div class="bg-nmfs-blue text-white text-center py-4 mt-12">
+        <footer class="bg-nmfs-blue text-white text-center py-4 w-full mt-auto">
             <p class="text-sm">
                 NOAA | NMFS Office of the Chief Information Officer
             </p>
-        </div>
+        </footer>
     </div>
 
     <script>
         // Global state
         let orgData = null;
         let activeDivision = null;
-        let expandedPrograms = {};
+        let activeDivisions = []; // For multiple divisions when deputy is clicked
+        let activeDeputy = null; // Track which deputy is selected
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
@@ -126,178 +129,274 @@
         });
 
         // Load organization data
-        function loadData() {
-            // Call Google Apps Script function to get employee data
-            google.script.run
-                .withSuccessHandler(function(employees) {
-                    try {
-                        const organizedData = organizeEmployeeData(employees);
-                        console.log("Organized data:", organizedData);
+        function showError(message) {
+            hideLoading();
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-screen').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+        }
 
-                        // Remove CIO, DDCIO1, DDCIO2 divisions
-                        const filteredDivisions = organizedData?.divisions?.filter(
-                            div => !['CIO', 'DDCIO1', 'DDCIO2'].includes(div.name?.toUpperCase())
-                        ) || [];
+        function hideLoading() {
+            document.getElementById('loading-screen').classList.add('hidden');
+        }
 
-                        // Add dummy position descriptions for leadership roles
-                        const enhancedData = {
-                            ...organizedData,
-                            divisions: filteredDivisions,
-                            // Add position description to CIO
-                            cio: organizedData.cio ? {
-                                ...organizedData.cio,
-                                positionDescription: "Leads the strategic direction and oversight of all information technology operations, ensuring alignment with organizational goals and federal IT requirements."
-                            } : null,
-                            // Add position descriptions to Deputy CIOs
-                            deputyCIOs: organizedData.deputyCIOs?.map((deputy, index) => ({
-                                ...deputy,
-                                positionDescription: `Supports the CIO in managing IT operations and strategic initiatives. Provides leadership in key technology areas including cybersecurity, data management, and digital transformation.`
-                            })) || []
-                        };
+        async function loadData() {
+            try {
+                const employees = await fetchEmployeeData();
+                const organizedData = organizeEmployeeData(employees);
+                console.log("Organized data:", organizedData);
 
-                        // Add position descriptions to Division Directors
-                        enhancedData.divisions = filteredDivisions.map(division => ({
-                            ...division,
-                            director: division.director ? {
-                                ...division.director,
-                                positionDescription: `Provides executive leadership and strategic direction for the ${division.name} division. Oversees program management, resource allocation, and ensures delivery of mission-critical services.`
-                            } : null
-                        }));
+                const filteredDivisions = organizedData?.divisions?.filter(
+                    div => !['CIO', 'DDCIO1', 'DDCIO2'].includes(div.name?.toUpperCase())
+                ) || [];
 
-                        orgData = enhancedData;
-                        hideLoading();
-                        renderApplication();
+                orgData = {
+                    cio: organizedData.cio,
+                    deputyCIO: organizedData.deputyCIO,
+                    divisions: filteredDivisions
+                };
+                hideLoading();
+                document.getElementById('main-app').classList.remove('hidden');
+                renderApplication();
 
-                        if (filteredDivisions.length > 0) {
-                            activeDivision = 0;
-                            renderDivisionContent();
+                if (filteredDivisions.length > 0) {
+                    activeDivision = 0;
+                    activeDivisions = []; // Reset multiple divisions when data loads
+                    activeDeputy = null; // Reset active deputy when data loads
+                    renderDivisionContent();
+                }
+            } catch (err) {
+                showError(err.message);
+            }
+        }
+
+        // Fetch employee data with environment detection
+        async function fetchEmployeeData() {
+            try {
+                // Environment detection
+                const isGAS = typeof google !== 'undefined' && google.script;
+                const isLocalDev = typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development';
+
+                if (isGAS) {
+                    // Running in Google Apps Script environment
+                    console.log('Fetching data from Google Apps Script backend...');
+                    return new Promise((resolve, reject) => {
+                        google.script.run
+                            .withSuccessHandler(function(employees) {
+                                console.log(`Successfully loaded ${employees?.length || 0} employees from GAS backend`);
+                                if (!employees || !Array.isArray(employees) || employees.length === 0) {
+                                    console.warn('No employee data received from GAS, using fallback data');
+                                    resolve(getFallbackData());
+                                } else {
+                                    resolve(employees);
+                                }
+                            })
+                            .withFailureHandler(function(error) {
+                                console.error('Error fetching employee data from GAS:', error);
+                                console.warn('Falling back to local data');
+                                resolve(getFallbackData());
+                            })
+                            .getEmployeeData();
+                    });
+                } else {
+                    // Running in Next.js environment (local dev or production)
+                    console.log('Fetching data from Next.js API...');
+                    console.log('Environment: ', {
+                        isLocalDev,
+                        isGAS: false
+                    });
+
+                    const response = await fetch('/api/employees', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
                         }
-                    } catch (err) {
-                        showError(err.message);
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                })
-                .withFailureHandler(function(error) {
-                    showError('Failed to load data: ' + error.message);
-                })
-                .getEmployeeData();
+
+                    console.log("response: ", response);
+
+                    const employees = await response.json();
+
+                    if (!employees || !Array.isArray(employees) || employees.length === 0) {
+                        console.warn('No employee data received from API, using fallback data');
+                        return getFallbackData();
+                    }
+
+                    console.log(`Successfully loaded ${employees.length} employees from Next.js API`);
+                    return employees;
+                }
+            } catch (error) {
+                console.error('Error fetching employee data:', error);
+                console.warn('Falling back to local data');
+                return getFallbackData();
+            }
+        }
+
+        // Fallback data function (placeholder)
+        function getFallbackData() {
+            // In a real implementation, this would return the fallback data
+            // For now, return an empty array
+            console.warn('Using empty fallback data');
+            return [];
         }
 
         // Organize employee data (client-side processing)
         function organizeEmployeeData(employees) {
-            const cio = employees.find(emp =>
-                emp.title && emp.title.toLowerCase().includes('chief information officer') &&
-                !emp.title.toLowerCase().includes('deputy')
-            );
+                                const cio = employees.find(emp =>
+                                                emp.title && emp.title.toLowerCase().includes('chief information officer') &&
+                                                !emp.title.toLowerCase().includes('deputy')
+                                );
 
-            const deputyCIOs = employees.filter(emp =>
-                emp.title && emp.title.toLowerCase().includes('deputy cio')
-            );
+                                const deputyCIO = employees.filter(emp =>
+                                                emp.title && emp.title.toLowerCase().includes('deputy cio')
+                                );
 
-            const divisions = {};
+                                deputyCIO.forEach(emp => {
+                                                const associatedDivisions = employees
+                                                                .filter(e => e.manager && emp.firstName && emp.lastName && e.manager.toLowerCase().includes(`${emp.firstName.toLowerCase()} ${emp.lastName.toLowerCase()}`))
+                                                                .map(e => {
+                                                                                if (e.division && e.division.startsWith('CIO/')) {
+                                                                                                const parts = e.division.split('/');
+                                                                                                return parts.length >= 2 ? parts[1].replace(/\s+$/, '') : 'CIO';
+                                                                                }
+                                                                                return e.division;
+                                                                })
+                                                                .filter((value, index, self) => value && self.indexOf(value) === index); // unique values
+                                                emp.divisionsOwned = associatedDivisions;
+                                });
 
-            employees.forEach(employee => {
-                if (employee.division && employee.division.trim()) {
-                    let divisionName = employee.division.trim();
+                                const divisions = {};
 
-                    // Extract value after CIO/ and before the second /
-                    if (divisionName.startsWith('CIO/')) {
-                        const parts = divisionName.split('/');
-                        if (parts.length >= 2) {
-                            // Remove trailing space from the division name after CIO/
-                            divisionName = parts[1].replace(/\s+$/, '');
-                        } else {
-                            divisionName = 'CIO';
-                        }
-                    }
+                                employees.forEach(employee => {
+                                                if (employee.division && employee.division.trim()) {
+                                                                let divisionName = employee.division.trim();
 
-                    if (!divisions[divisionName]) {
-                        divisions[divisionName] = {
-                            name: divisionName,
-                            director: null,
-                            programs: {},
-                            employees: []
-                        };
-                    }
+                                                                // Extract value after CIO/ and before the second /
+                                                                if (divisionName.startsWith('CIO/')) {
+                                                                                const parts = divisionName.split('/');
+                                                                                if (parts.length >= 2) {
+                                                                                                divisionName = parts[1].replace(/\s+$/, '');
+                                                                                } else {
+                                                                                                divisionName = 'CIO';
+                                                                                }
+                                                                }
 
-                    if (employee.title && employee.title.toLowerCase().includes('director')) {
-                        divisions[divisionName].director = employee;
-                    }
+                                                                if (!divisions[divisionName]) {
+                                                                                divisions[divisionName] = {
+                                                                                                name: divisionName,
+                                                                                                directors: [],
+                                                                                                programs: {},
+                                                                                                employees: []
+                                                                                };
+                                                                }
 
-                    if (employee.program && employee.program.trim()) {
-                        const programName = employee.program.trim();
+                                                                // Check if employee is a director
+                                                                if (employee.title && employee.title.toLowerCase().includes('director')) {
+                                                                                divisions[divisionName].directors.push(employee);
+                                                                                return; // Don't add directors to regular employee lists
+                                                                }
 
-                        if (!divisions[divisionName].programs[programName]) {
-                            divisions[divisionName].programs[programName] = {
-                                name: programName,
-                                lead: null,
-                                employees: []
-                            };
-                        }
+                                                                // If employee has a program, organize by program
+                                                                if (employee.program && employee.program.trim()) {
+                                                                                const programName = employee.program.trim();
 
-                        if (employee.title && employee.title.toLowerCase().includes('lead')) {
-                            divisions[divisionName].programs[programName].lead = employee;
-                        } else {
-                            divisions[divisionName].programs[programName].employees.push(employee);
-                        }
-                    } else {
-                        divisions[divisionName].employees.push(employee);
-                    }
-                }
-            });
+                                                                                if (!divisions[divisionName].programs[programName]) {
+                                                                                                divisions[divisionName].programs[programName] = {
+                                                                                                                name: programName,
+                                                                                                                employees: []
+                                                                                                };
+                                                                                }
 
-            return {
-                cio,
-                deputyCIOs,
-                divisions: Object.values(divisions),
-                allEmployees: employees
-            };
-        }
+                                                                                divisions[divisionName].programs[programName].employees.push(employee);
+                                                                } else {
+                                                                                // Employee belongs directly to division (no program)
+                                                                                divisions[divisionName].employees.push(employee);
+                                                                }
+                                                }
+                                });
 
-        // Utility functions
+                                // Sort employees within each program and division (managers first)
+                                Object.values(divisions).forEach(division => {
+                                                division.employees.sort((a, b) => {
+                                                                const aIsManager = isManager(a);
+                                                                const bIsManager = isManager(b);
+                                                                if (aIsManager && !bIsManager) return -1;
+                                                                if (!aIsManager && bIsManager) return 1;
+                                                                return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
+                                                });
+
+                                                Object.values(division.programs).forEach(program => {
+                                                                program.employees.sort((a, b) => {
+                                                                                const aIsManager = isManager(a);
+                                                                                const bIsManager = isManager(b);
+                                                                                if (aIsManager && !bIsManager) return -1;
+                                                                                if (!aIsManager && bIsManager) return 1;
+                                                                                return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
+                                                                });
+                                                });
+                                });
+
+                                console.log("employees:", employees);
+
+                                return {
+                                                cio,
+                                                deputyCIO,
+                                                divisions: Object.values(divisions)
+                                };
+                };
+
         function getEmploymentStatus(employee) {
-            const federalCodes = ['GS', 'FED', 'FEDERAL'];
-            const status = employee.empl_code || '';
-            return federalCodes.some(code => status.toUpperCase().includes(code)) ? 'federal' : 'contractor';
+                const federalCodes = ['GS', 'FED', 'FEDERAL'];
+                const status = employee.empl_code || '';
+                return federalCodes.some(code => status.toUpperCase().includes(code)) ? 'federal' : 'contractor';
         }
 
-        function createEmploymentBadge(employee) {
-            const status = getEmploymentStatus(employee);
-            return `<span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
-                status === 'federal'
-                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                    : 'bg-orange-100 text-orange-800 border border-orange-200'
-            }">
-                ${status === 'federal' ? 'Federal' : 'Contractor'}
-            </span>`;
-        }
-
-        // UI rendering functions
-        function hideLoading() {
-            document.getElementById('loading-screen').style.display = 'none';
-            document.getElementById('main-app').classList.remove('hidden');
-            document.getElementById('main-app').classList.add('fade-in');
-        }
-
-        function showError(message) {
-            document.getElementById('loading-screen').style.display = 'none';
-            document.getElementById('error-screen').classList.remove('hidden');
-            document.getElementById('error-message').textContent = message;
+        function isManager(employee) {
+            return employee.title && (
+                employee.title.toLowerCase().includes('director') ||
+                employee.title.toLowerCase().includes('manager') ||
+                employee.title.toLowerCase().includes('lead') ||
+                employee.title.toLowerCase().includes('chief') ||
+                employee.title.toLowerCase().includes('deputy')
+            );
         }
 
         function renderApplication() {
             // Render CIO section
+            const cioNameElement = document.getElementById('cio-name');
             if (orgData?.cio) {
-                document.getElementById('cio-section').classList.remove('hidden');
-                document.getElementById('cio-card').innerHTML = createLeadershipCard(orgData.cio, 'CIO');
+                cioNameElement.textContent = `${orgData.cio.firstName} ${orgData.cio.lastName}`;
+            } else {
+                cioNameElement.textContent = 'Chief Information Officer Name';
+            }
 
-                // Render Deputy CIOs
-                if (orgData?.deputyCIOs && orgData.deputyCIOs.length > 0) {
-                    document.getElementById('deputy-cios-section').classList.remove('hidden');
-                    const deputyGrid = document.getElementById('deputy-cios-grid');
-                    deputyGrid.innerHTML = orgData.deputyCIOs.map(deputy =>
-                        createLeadershipCard(deputy, 'Deputy CIO')
-                    ).join('');
-                }
+            // Render Deputy CIO section with clickable functionality
+            const deputyCioContainer = document.getElementById('deputy-cio-container');
+            if (orgData?.deputyCIO && orgData.deputyCIO.length > 0) {
+                deputyCioContainer.innerHTML = orgData.deputyCIO.map((dep, idx) => {
+                    // Find the division index for this deputy
+                    const divisionIndex = orgData.divisions.findIndex(
+                        div => div.name?.toLowerCase() === dep.division?.trim().toLowerCase()
+                    );
+
+                    return `
+                        <button
+                            type="button"
+                            class="hover:underline focus:outline-none px-2 py-1 rounded ${
+                                activeDeputy === idx ? 'bg-nmfs-blue text-white' : 'bg-transparent text-gray-900'
+                            } ${dep.divisionsOwned?.some(owned => owned?.toLowerCase() === orgData.divisions[activeDivision]?.name?.toLowerCase()) ? 'border border-nmfs-blue bg-blue-50 text-nmfs-blue' : ''}"
+                            onclick="handleDeputyClick(${idx})"
+                        >
+                            ${dep.firstName} ${dep.lastName}
+                        </button>
+                    `;
+                }).join('');
+            } else {
+                deputyCioContainer.innerHTML = '<span>Deputy CIO Name</span>';
             }
 
             // Render Divisions section
@@ -313,10 +412,10 @@
             tabsContainer.innerHTML = orgData.divisions.map((division, index) =>
                 `<button
                     onclick="setActiveDivision(${index})"
-                    class="px-6 py-3 font-medium text-sm rounded-t-lg mr-1 transition-colors ${
-                        activeDivision === index
-                            ? 'bg-nmfs-blue text-white border-b-2 border-nmfs-blue'
-                            : 'bg-white text-nmfs-blue hover:bg-blue-50 border border-gray-200 border-b-0'
+                    class="px-4 py-2 text-sm font-medium rounded ${
+                        activeDivision === index || activeDivisions.includes(index)
+                            ? 'bg-nmfs-blue text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }"
                 >
                     ${division.name}
@@ -325,148 +424,182 @@
         }
 
         function renderDivisionContent() {
+            const contentContainer = document.getElementById('division-content');
+
+            // Handle multiple divisions (when deputy CIO is clicked)
+            if (activeDivisions.length > 0) {
+                let content = '<div class="space-y-8">';
+
+                activeDivisions.forEach((divisionIndex) => {
+                    const division = orgData.divisions[divisionIndex];
+                    if (!division) return;
+
+                    content += `
+                        <div class="border-b border-gray-200 last:border-b-0 pb-6 last:pb-0">
+                            ${renderSingleDivision(division)}
+                        </div>`;
+                });
+
+                content += '</div>';
+                contentContainer.innerHTML = content;
+                contentContainer.classList.remove('hidden');
+                return;
+            }
+
+            // Handle single division
             if (activeDivision === null || !orgData.divisions[activeDivision]) return;
 
             const division = orgData.divisions[activeDivision];
-            const contentContainer = document.getElementById('division-content');
-
-            let content = `<div class="mb-6">
-                <h3 class="text-xl font-bold text-nmfs-blue mb-4">${division.name}</h3>`;
-
-            // Division Director
-            if (division.director) {
-                content += `<div class="mb-6">
-                    <h4 class="text-lg font-semibold text-gray-700 mb-3">Division Director</h4>
-                    ${createLeadershipCard(division.director, 'Director')}
-                </div>`;
-            }
-
-            // Programs
-            const programs = Object.values(division.programs);
-            if (programs.length > 0) {
-                content += `<div class="mb-6">
-                    <h4 class="text-lg font-semibold text-gray-700 mb-4">Programs</h4>
-                    <div class="space-y-4">
-                        ${programs.map((program, pIndex) => createProgramCard(program, pIndex)).join('')}
-                    </div>
-                </div>`;
-            }
-
-            // Division-level Employees
-            if (division.employees.length > 0) {
-                content += `<div>
-                    <h4 class="text-lg font-semibold text-gray-700 mb-4">Division Staff</h4>
-                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                        ${division.employees.map(employee => createEmployeeCard(employee)).join('')}
-                    </div>
-                </div>`;
-            }
-
-            content += `</div>`;
-
-            contentContainer.innerHTML = content;
+            contentContainer.innerHTML = renderSingleDivision(division);
             contentContainer.classList.remove('hidden');
         }
 
-        function createLeadershipCard(person, role, showDescription = true) {
-            return `<div class="bg-white border-l-4 border-nmfs-blue p-4 rounded-lg shadow-sm">
-                <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                        <h3 class="text-lg font-semibold text-nmfs-blue">
-                            ${person.firstName} ${person.lastName}
-                        </h3>
-                        <p class="text-nmfs-light-blue font-medium text-sm mb-1">${person.title}</p>
-                        <p class="text-gray-600 text-sm mb-2">${person.email}</p>
-                        <div class="mb-2">
-                            ${createEmploymentBadge(person)}
-                        </div>
-                        ${showDescription && person.positionDescription ?
-                            `<p class="text-gray-700 text-sm italic mt-2 p-2 bg-gray-50 rounded">
-                                ${person.positionDescription}
-                            </p>` : ''
-                        }
-                    </div>
-                </div>
-            </div>`;
-        }
+        function renderSingleDivision(division) {
+            let content = `
+                <div>
+                    <!-- Division Title -->
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">
+                        ${division.name}
+                    </h2>`;
 
-        function createEmployeeCard(employee, isLead = false) {
-            return `<div class="bg-white p-3 rounded-lg border shadow-sm ${
-                isLead ? 'border-nmfs-light-blue bg-blue-50' : 'border-gray-200'
-            }">
-                <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                        <h4 class="font-semibold ${isLead ? 'text-nmfs-blue' : 'text-gray-800'}">
-                            ${employee.firstName} ${employee.lastName}
-                        </h4>
-                        <p class="text-gray-600 text-sm mb-1">${employee.title}</p>
-                        <p class="text-gray-500 text-xs mb-2">${employee.email}</p>
-                        <div class="flex items-center gap-2">
-                            ${createEmploymentBadge(employee)}
-                            ${isLead ?
-                                `<span class="inline-block px-2 py-0.5 text-xs rounded-full font-medium bg-nmfs-light-blue text-white">
-                                    Program Lead
-                                </span>` : ''
+            // Division Directors
+            if (division.directors && division.directors.length > 0) {
+                content += `
+                    <div class="mb-6">
+                        ${division.directors.map(director => {
+                            return `
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="font-medium text-gray-900">
+                                        ${director.firstName} ${director.lastName}
+                                    </span>
+                                    <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+                                        Director
+                                    </span>
+                                </div>`;
+                        }).join('')}
+                        <div class="border-b border-gray-200 mt-4"></div>
+                    </div>`;
+            }
+
+            // Programs - horizontal layout
+            const programs = Object.values(division.programs || {});
+            if (programs.length > 0) {
+                content += `
+                    <div class="flex flex-wrap gap-6 mb-6">
+                        ${programs.map(program => {
+                            let programContent = `
+                                <div class="min-w-[220px] bg-gray-50 rounded-lg shadow-sm p-4 flex-1">
+                                    <h3 class="text-base font-medium text-gray-800 mb-3 text-center">
+                                        ${program.name}
+                                    </h3>
+                                    <div class="space-y-1">`;
+
+                            // Program Employees
+                            if (program.employees && program.employees.length > 0) {
+                                programContent += program.employees.map(employee => {
+                                    const employmentStatus = getEmploymentStatus(employee);
+                                    const employeeIsManager = isManager(employee);
+
+                                    return `
+                                        <div class="flex items-center gap-2 ${employeeIsManager ? '' : 'pl-6'}">
+                                            <span class="text-sm text-gray-700 ${employeeIsManager ? 'font-bold' : ''}">
+                                                ${employee.firstName} ${employee.lastName}
+                                            </span>
+                                            ${employeeIsManager ?
+                                                '<span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">Manager</span>' :
+                                                ''
+                                            }
+                                            ${employmentStatus === 'contractor' ?
+                                                '<span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">contractor</span>' :
+                                                ''
+                                            }
+                                        </div>`;
+                                }).join('');
                             }
+
+                            programContent += `
+                                    </div>
+                                </div>`;
+                            return programContent;
+                        }).join('')}
+                    </div>`;
+            }
+
+            // Division Staff (no program)
+            if (division.employees && division.employees.length > 0) {
+                const hasProgramsClass = programs.length > 0 ? "mt-6 pt-6 border-t border-gray-200" : "";
+                content += `
+                    <div class="${hasProgramsClass}">
+                        <h3 class="text-base font-medium text-gray-800 mb-3">
+                            Division Staff
+                        </h3>
+                        <div class="space-y-1 pl-4">
+                            ${division.employees.map(employee => {
+                                const employmentStatus = getEmploymentStatus(employee);
+                                const employeeIsManager = isManager(employee);
+
+                                return `
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm text-gray-700">
+                                            ${employee.firstName} ${employee.lastName}
+                                        </span>
+                                        ${employeeIsManager ?
+                                            '<span class="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded">Manager</span>' :
+                                            ''
+                                        }
+                                        ${employmentStatus === 'contractor' ?
+                                            '<span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">contractor</span>' :
+                                            '<span class="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">federal</span>'
+                                        }
+                                    </div>`;
+                            }).join('')}
                         </div>
-                    </div>
-                </div>
-            </div>`;
-        }
+                    </div>`;
+            }
 
-        function createProgramCard(program, pIndex) {
-            const key = `${activeDivision}-${program.name}`;
-            const isExpanded = expandedPrograms[key];
-
-            return `<div class="border border-gray-200 rounded-lg">
-                <!-- Program Header -->
-                <button
-                    onclick="toggleProgram('${activeDivision}', '${program.name}')"
-                    class="w-full p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-t-lg flex items-center justify-between"
-                >
-                    <h5 class="font-semibold text-nmfs-blue">${program.name}</h5>
-                    <svg
-                        class="w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-
-                <!-- Program Content -->
-                ${isExpanded ? `<div class="p-4 border-t border-gray-200">
-                    ${program.lead ?
-                        `<div class="mb-4">
-                            <h6 class="text-sm font-medium text-gray-600 mb-2">Program Lead</h6>
-                            ${createEmployeeCard(program.lead, true)}
-                        </div>` : ''
-                    }
-
-                    ${program.employees.length > 0 ?
-                        `<div>
-                            <h6 class="text-sm font-medium text-gray-600 mb-2">Team Members</h6>
-                            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-                                ${program.employees.map(employee => createEmployeeCard(employee)).join('')}
-                            </div>
-                        </div>` : ''
-                    }
-                </div>` : ''}
-            </div>`;
+            content += `</div>`;
+            return content;
         }
 
         // Event handlers
         function setActiveDivision(index) {
             activeDivision = index;
+            activeDivisions = []; // Clear multiple divisions when single division is clicked
+            activeDeputy = null; // Clear active deputy when individual division is selected
             renderDivisionTabs();
             renderDivisionContent();
+            // Re-render the deputy section to update active states
+            renderApplication();
         }
 
-        function toggleProgram(divisionIndex, programName) {
-            const key = `${divisionIndex}-${programName}`;
-            expandedPrograms[key] = !expandedPrograms[key];
+        function handleDeputyClick(deputyIndex) {
+            const deputy = orgData.deputyCIO[deputyIndex];
+
+            // Set this deputy as active
+            activeDeputy = deputyIndex;
+
+            // Handle deputy CIO click - activate all their owned divisions
+            if (deputy.divisionsOwned && deputy.divisionsOwned.length > 0) {
+                const divisionIndices = deputy.divisionsOwned
+                    .map(divName => orgData.divisions.findIndex(div => div.name?.toLowerCase() === divName?.toLowerCase()))
+                    .filter(index => index !== -1);
+
+                activeDivisions = divisionIndices;
+                activeDivision = null; // Clear single division when multiple are active
+            } else {
+                // Fallback to single division if no owned divisions
+                const divisionIndex = orgData.divisions.findIndex(
+                    div => div.name?.toLowerCase() === deputy.division?.trim().toLowerCase()
+                );
+                if (divisionIndex !== -1) {
+                    activeDivision = divisionIndex;
+                    activeDivisions = [];
+                }
+            }
+
+            renderDivisionTabs();
             renderDivisionContent();
+            renderApplication();
         }
     </script>
 </body>

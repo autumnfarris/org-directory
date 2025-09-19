@@ -8,67 +8,8 @@ export default function Home() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
 	const [activeDivision, setActiveDivision] = useState(null);
-	const [expandedPrograms, setExpandedPrograms] = useState({});
-
-	// Employee data fetching functions moved from API route
-	const parseCsvData = (csvText) => {
-		const lines = csvText.split('\n').filter(line => line.trim());
-		const rows = [];
-
-		for (let line of lines) {
-			// Simple CSV parsing - handles quoted fields with commas
-			const row = [];
-			let current = '';
-			let inQuotes = false;
-
-			for (let i = 0; i < line.length; i++) {
-				const char = line[i];
-				const nextChar = line[i + 1];
-
-				if (char === '"' && !inQuotes) {
-					inQuotes = true;
-				} else if (char === '"' && inQuotes) {
-					if (nextChar === '"') {
-						// Escaped quote
-						current += '"';
-						i++; // skip next quote
-					} else {
-						inQuotes = false;
-					}
-				} else if (char === ',' && !inQuotes) {
-					row.push(current.trim());
-					current = '';
-				} else {
-					current += char;
-				}
-			}
-
-			// Add the last field
-			row.push(current.trim());
-			rows.push(row);
-		}
-
-		return rows;
-	};
-
-	const mapHeaderToKey = (header) => {
-		// Map the new headers to your internal keys
-		const headerMap = {
-			'PERSON_ID': 'id',
-			'LAST_NAME': 'lastName',
-			'FIRST_NAME': 'firstName',
-			'EMAIL_ADDRESS': 'email',
-			'MGR_NAME': 'manager',
-			'OFFICE': 'division',
-			'DUMMY_POSITION_TITLE': 'title',
-			'DUMMY_ORG_TITLE': 'positionDescription',
-			'DUMMY_PROGRAM_TITLE': 'program',
-			'EMPL_CODE': 'empl_code'
-			// Add more mappings if needed
-		};
-
-		return headerMap[header] || header;
-	};
+	const [activeDivisions, setActiveDivisions] = useState([]); // For multiple divisions when deputy is clicked
+	const [activeDeputy, setActiveDeputy] = useState(null); // Track which deputy is selected
 
 	const organizeEmployeeData = (employees) => {
 		const cio = employees.find(emp =>
@@ -76,9 +17,23 @@ export default function Home() {
 			!emp.title.toLowerCase().includes('deputy')
 		);
 
-		const deputyCIOs = employees.filter(emp =>
+		const deputyCIO = employees.filter(emp =>
 			emp.title && emp.title.toLowerCase().includes('deputy cio')
 		);
+
+		deputyCIO.forEach(emp => {
+			const associatedDivisions = employees
+				.filter(e => e.manager && emp.firstName && emp.lastName && e.manager.toLowerCase().includes(`${emp.firstName.toLowerCase()} ${emp.lastName.toLowerCase()}`))
+				.map(e => {
+					if (e.division && e.division.startsWith('CIO/')) {
+						const parts = e.division.split('/');
+						return parts.length >= 2 ? parts[1].replace(/\s+$/, '') : 'CIO';
+					}
+					return e.division;
+				})
+				.filter((value, index, self) => value && self.indexOf(value) === index); // unique values
+			emp.divisionsOwned = associatedDivisions;
+		});
 
 		const divisions = {};
 
@@ -90,7 +45,6 @@ export default function Home() {
 				if (divisionName.startsWith('CIO/')) {
 					const parts = divisionName.split('/');
 					if (parts.length >= 2) {
-						// Remove trailing space from the division name after CIO/
 						divisionName = parts[1].replace(/\s+$/, '');
 					} else {
 						divisionName = 'CIO';
@@ -100,87 +54,121 @@ export default function Home() {
 				if (!divisions[divisionName]) {
 					divisions[divisionName] = {
 						name: divisionName,
-						director: null,
+						directors: [],
 						programs: {},
 						employees: []
 					};
 				}
 
+				// Check if employee is a director
 				if (employee.title && employee.title.toLowerCase().includes('director')) {
-					divisions[divisionName].director = employee;
+					divisions[divisionName].directors.push(employee);
+					return; // Don't add directors to regular employee lists
 				}
 
+				// If employee has a program, organize by program
 				if (employee.program && employee.program.trim()) {
 					const programName = employee.program.trim();
 
 					if (!divisions[divisionName].programs[programName]) {
 						divisions[divisionName].programs[programName] = {
 							name: programName,
-							lead: null,
 							employees: []
 						};
 					}
 
-					if (employee.title && employee.title.toLowerCase().includes('lead')) {
-						divisions[divisionName].programs[programName].lead = employee;
-					} else {
-						divisions[divisionName].programs[programName].employees.push(employee);
-					}
+					divisions[divisionName].programs[programName].employees.push(employee);
 				} else {
+					// Employee belongs directly to division (no program)
 					divisions[divisionName].employees.push(employee);
 				}
 			}
 		});
 
+		// Sort employees within each program and division (managers first)
+		Object.values(divisions).forEach(division => {
+			division.employees.sort((a, b) => {
+				const aIsManager = isManager(a);
+				const bIsManager = isManager(b);
+				if (aIsManager && !bIsManager) return -1;
+				if (!aIsManager && bIsManager) return 1;
+				return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
+			});
+
+			Object.values(division.programs).forEach(program => {
+				program.employees.sort((a, b) => {
+					const aIsManager = isManager(a);
+					const bIsManager = isManager(b);
+					if (aIsManager && !bIsManager) return -1;
+					if (!aIsManager && bIsManager) return 1;
+					return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
+				});
+			});
+		});
+
+		console.log("employees:", employees);
+
 		return {
 			cio,
-			deputyCIOs,
-			divisions: Object.values(divisions),
-			allEmployees: employees
+			deputyCIO,
+			divisions: Object.values(divisions)
 		};
 	};
 
 	const fetchEmployeeData = useCallback(async () => {
-		const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS1f8f96GYNenNk4IGrnYlOcnAgoSrb0O7F6Uu1h_hXmujOMk9OgU5hCqerVT7OuIcLj4SlVqI39-DK/pub?output=csv";
-
 		try {
-			console.log('Fetching data from Google Sheets CSV...');
-			const response = await axios.get(csvUrl, {
-				timeout: 10000, // 10 second timeout
-				headers: {
-					'User-Agent': 'NMFS-OCIO-OrgChart/1.0'
-				}
-			});
+			// Environment detection
+			const isGAS = typeof google !== 'undefined' && google.script;
+			const isLocalDev = process.env.NODE_ENV === 'development';
 
-			const csvData = response.data;
-
-			if (!csvData) {
-				console.warn('No CSV data received, using fallback data');
-				return fallbackData;
-			}
-
-			// Parse CSV data
-			const rows = parseCsvData(csvData);
-
-			if (!rows || rows.length === 0) {
-				console.warn('No data found in CSV, using fallback data');
-				return fallbackData;
-			}
-
-			const headers = rows[0];
-			const employees = rows.slice(1).map(row => {
-				const employee = {};
-				headers.forEach((header, index) => {
-					const key = mapHeaderToKey(header.toUpperCase().trim());
-					employee[key] = row[index] || null;
+			if (isGAS) {
+				// Running in Google Apps Script environment
+				console.log('Fetching data from Google Apps Script backend...');
+				return new Promise((resolve, reject) => {
+					google.script.run
+						.withSuccessHandler(function(employees) {
+							console.log(`Successfully loaded ${employees?.length || 0} employees from GAS backend`);
+							if (!employees || !Array.isArray(employees) || employees.length === 0) {
+								console.warn('No employee data received from GAS, using fallback data');
+								resolve(fallbackData);
+							} else {
+								resolve(employees);
+							}
+						})
+						.withFailureHandler(function(error) {
+							console.error('Error fetching employee data from GAS:', error);
+							console.warn('Falling back to local data');
+							resolve(fallbackData);
+						})
+						.getEmployeeData();
 				});
-				return employee;
-			});
+			} else {
+				// Running in Next.js environment (local dev or production)
+				console.log('Fetching data from Next.js API...');
+				console.log('Environment: ', {
+					NODE_ENV: process.env.NODE_ENV,
+					isLocalDev,
+					isGAS: false
+				});
 
-			console.log(`Successfully loaded ${employees.length} employees from Google Sheets`);
-			return employees;
+				const response = await axios.get('/api/employees', {
+					timeout: 10000, // 10 second timeout
+				});
+
+				console.log("response: ", response);
+
+				const employees = response.data;
+
+				if (!employees || !Array.isArray(employees) || employees.length === 0) {
+					console.warn('No employee data received from API, using fallback data');
+					return fallbackData;
+				}
+
+				console.log(`Successfully loaded ${employees.length} employees from Next.js API`);
+				return employees;
+			}
 		} catch (error) {
-			console.error('Error fetching Google Sheets CSV data:', error);
+			console.error('Error fetching employee data:', error);
 			console.warn('Falling back to local data');
 			return fallbackData;
 		}
@@ -192,42 +180,22 @@ export default function Home() {
 				const employees = await fetchEmployeeData();
 				const organizedData = organizeEmployeeData(employees);
 
-				console.log("data:", organizedData);
-				// Remove CIO, DDCIO1, DDCIO2 divisions
 				const filteredDivisions = organizedData?.divisions?.filter(
 					div =>
 						!['CIO', 'DDCIO1', 'DDCIO2'].includes(div.name?.toUpperCase())
 				) || [];
 
-				// Add dummy position descriptions for leadership roles
-				const enhancedData = {
-					...organizedData,
-					divisions: filteredDivisions,
-					// Add position description to CIO
-					cio: organizedData.cio ? {
-						...organizedData.cio,
-						positionDescription: "Leads the strategic direction and oversight of all information technology operations, ensuring alignment with organizational goals and federal IT requirements."
-					} : null,
-					// Add position descriptions to Deputy CIOs
-					deputyCIOs: organizedData.deputyCIOs?.map((deputy, index) => ({
-						...deputy,
-						positionDescription: `Supports the CIO in managing IT operations and strategic initiatives. Provides leadership in key technology areas including cybersecurity, data management, and digital transformation.`
-					})) || []
-				};
+				setOrgData({
+					cio: organizedData.cio,
+					deputyCIO: organizedData.deputyCIO,
+					divisions: filteredDivisions
+				});
 
-				// Add position descriptions to Division Directors
-				enhancedData.divisions = filteredDivisions.map(division => ({
-					...division,
-					director: division.director ? {
-						...division.director,
-						positionDescription: `Provides executive leadership and strategic direction for the ${division.name} division. Oversees program management, resource allocation, and ensures delivery of mission-critical services.`
-					} : null
-				}));
-
-				setOrgData(enhancedData);
 				setLoading(false);
 				if (filteredDivisions.length > 0) {
 					setActiveDivision(0);
+					setActiveDivisions([]); // Reset multiple divisions when data loads
+					setActiveDeputy(null); // Reset active deputy when data loads
 				}
 			} catch (err) {
 				setError(err.message);
@@ -238,80 +206,19 @@ export default function Home() {
 		loadData();
 	}, [fetchEmployeeData]);
 
-	const toggleProgram = (divisionIndex, programName) => {
-		const key = `${divisionIndex}-${programName}`;
-		setExpandedPrograms(prev => ({
-			...prev,
-			[key]: !prev[key]
-		}));
-	};
-
 	const getEmploymentStatus = (employee) => {
 		const federalCodes = ['GS', 'FED', 'FEDERAL'];
 		const status = employee.empl_code || '';
 		return federalCodes.some(code => status.toUpperCase().includes(code)) ? 'federal' : 'contractor';
 	};
 
-	const EmploymentBadge = ({ employee }) => {
-		const status = getEmploymentStatus(employee);
-		return (
-			<span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${
-				status === 'federal'
-					? 'bg-blue-100 text-blue-800 border border-blue-200'
-					: 'bg-orange-100 text-orange-800 border border-orange-200'
-			}`}>
-				{status === 'federal' ? 'Federal' : 'Contractor'}
-			</span>
-		);
-	};
-
-	const LeadershipCard = ({ person, role, showDescription = true }) => {
-		return (
-			<div className="bg-white border-l-4 border-[#003185] p-4 rounded-lg shadow-sm">
-				<div className="flex items-start justify-between">
-					<div className="flex-1">
-						<h3 className="text-lg font-semibold text-[#003185]">
-							{person.firstName} {person.lastName}
-						</h3>
-						<p className="text-[#0085ca] font-medium text-sm mb-1">{person.title}</p>
-						<p className="text-gray-600 text-sm mb-2">{person.email}</p>
-						<div className="mb-2">
-							<EmploymentBadge employee={person} />
-						</div>
-						{showDescription && person.positionDescription && (
-							<p className="text-gray-700 text-sm italic mt-2 p-2 bg-gray-50 rounded">
-								{person.positionDescription}
-							</p>
-						)}
-					</div>
-				</div>
-			</div>
-		);
-	};
-
-	const EmployeeCard = ({ employee, isLead = false }) => {
-		return (
-			<div className={`bg-white p-3 rounded-lg border shadow-sm ${
-				isLead ? 'border-[#0085ca] bg-blue-50' : 'border-gray-200'
-			}`}>
-				<div className="flex items-start justify-between">
-					<div className="flex-1">
-						<h4 className={`font-semibold ${isLead ? 'text-[#003185]' : 'text-gray-800'}`}>
-							{employee.firstName} {employee.lastName}
-						</h4>
-						<p className="text-gray-600 text-sm mb-1">{employee.title}</p>
-						<p className="text-gray-500 text-xs mb-2">{employee.email}</p>
-						<div className="flex items-center gap-2">
-							<EmploymentBadge employee={employee} />
-							{isLead && (
-								<span className="inline-block px-2 py-0.5 text-xs rounded-full font-medium bg-[#0085ca] text-white">
-									Program Lead
-								</span>
-							)}
-						</div>
-					</div>
-				</div>
-			</div>
+	const isManager = (employee) => {
+		return employee.title && (
+			employee.title.toLowerCase().includes('director') ||
+			employee.title.toLowerCase().includes('manager') ||
+			employee.title.toLowerCase().includes('lead') ||
+			employee.title.toLowerCase().includes('chief') ||
+			employee.title.toLowerCase().includes('deputy')
 		);
 	};
 
@@ -338,10 +245,10 @@ export default function Home() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+		<div className="min-h-screen flex flex-col bg-white">
 			{/* Header */}
 			<div className="bg-[#003185] text-white">
-				<div className="max-w-7xl mx-auto px-6 py-8">
+				<div className="max-w-6xl mx-auto px-6 py-8">
 					<h1 className="text-3xl font-bold text-center">
 						NMFS Office of the Chief Information Officer
 					</h1>
@@ -349,42 +256,87 @@ export default function Home() {
 				</div>
 			</div>
 
-			<div className="max-w-7xl mx-auto px-6 py-8">
+			<div className="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
 				{/* CIO Section */}
-				{orgData?.cio && (
-					<div className="mb-8">
-						<h2 className="text-2xl font-bold text-[#003185] mb-4 text-center">Chief Information Officer</h2>
-						<div className="max-w-2xl mx-auto mb-6">
-							<LeadershipCard person={orgData.cio} role="CIO" />
-						</div>
-						{/* Deputy CIOs under CIO */}
-						{orgData?.deputyCIOs && orgData.deputyCIOs.length > 0 && (
-							<div className="mb-4">
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
-									{orgData.deputyCIOs.map((deputy, index) => (
-										<LeadershipCard key={index} person={deputy} role="Deputy CIO" />
-									))}
-								</div>
-							</div>
-						)}
+				<div className="mb-8 flex flex-col items-center">
+					<div className="text-sm font-medium text-gray-600 mb-2 text-center">Chief Information Officer</div>
+					<div className="text-xl font-semibold text-gray-900 mb-4 text-center">
+						{orgData?.cio ?
+							`${orgData.cio.firstName} ${orgData.cio.lastName}` :
+							'Chief Information Officer Name'
+						}
 					</div>
-				)}
+					<div className="border-b border-gray-200 w-full"></div>
+				</div>
 
-				{/* Divisions Section */}
+				{/* Deputy CIO Section */}
+				<div className="mb-8 flex flex-col items-center">
+					<div className="flex flex-wrap justify-center gap-10 text-lg font-semibold text-gray-900 mb-4">
+						{orgData?.deputyCIO && orgData.deputyCIO.length > 0 ?
+							orgData.deputyCIO.map((dep, idx) => {
+								const divisionIndex = orgData.divisions.findIndex(
+									div => div.name?.toLowerCase() === dep.division?.trim().toLowerCase()
+								);
+
+								// Check if active division is in this deputy's divisionsOwned
+								const isOwner = dep.divisionsOwned?.some(
+									owned => owned?.toLowerCase() === orgData.divisions[activeDivision]?.name?.toLowerCase()
+								);
+
+								return (
+									<button
+										key={idx}
+										type="button"
+										className={`hover:underline focus:outline-none px-2 py-1 rounded ${
+											activeDeputy === idx ? 'bg-[#003185] text-white' : 'bg-transparent text-gray-900'
+										} ${isOwner ? 'border border-[#003185] bg-blue-50 text-[#003185]' : ''}`}
+										onClick={() => {
+											// Set this deputy as active
+											setActiveDeputy(idx);
+
+											// Handle deputy CIO click - activate all their owned divisions
+											if (dep.divisionsOwned && dep.divisionsOwned.length > 0) {
+												const divisionIndices = dep.divisionsOwned
+													.map(divName => orgData.divisions.findIndex(div => div.name?.toLowerCase() === divName?.toLowerCase()))
+													.filter(index => index !== -1);
+
+												setActiveDivisions(divisionIndices);
+												setActiveDivision(null); // Clear single division when multiple are active
+											} else if (divisionIndex !== -1) {
+												// Fallback to single division if no owned divisions
+												setActiveDivision(divisionIndex);
+												setActiveDivisions([]);
+											}
+										}}
+									>
+										{dep.firstName} {dep.lastName}
+									</button>
+								);
+							})
+							:
+							<span>Deputy CIO Name</span>
+						}
+					</div>
+					<div className="border-b border-gray-200 w-full"></div>
+				</div>
+
+				{/* Division Tabs */}
 				{orgData?.divisions && (
 					<div>
-						<h2 className="text-2xl font-bold text-[#003185] mb-6 text-center">Divisions</h2>
-
-						{/* Division Tabs */}
-						<div className="flex flex-wrap justify-center mb-8 border-b border-gray-200">
+						<div className="flex flex-wrap gap-2 mb-8 justify-center">
 							{orgData.divisions.map((division, index) => (
 								<button
 									key={index}
-									onClick={() => setActiveDivision(index)}
-									className={`px-6 py-3 font-medium text-sm rounded-t-lg mr-1 transition-colors ${
-										activeDivision === index
-											? 'bg-[#003185] text-white border-b-2 border-[#003185]'
-											: 'bg-white text-[#003185] hover:bg-blue-50 border border-gray-200 border-b-0'
+									onClick={() => {
+										// Handle individual division click - clear multiple divisions and set single
+										setActiveDivision(index);
+										setActiveDivisions([]);
+										setActiveDeputy(null); // Clear active deputy when individual division is selected
+									}}
+									className={`px-4 py-2 text-sm font-medium rounded ${
+										activeDivision === index || activeDivisions.includes(index)
+											? 'bg-[#003185] text-white'
+											: 'bg-gray-100 text-gray-700 hover:bg-gray-200'
 									}`}
 								>
 									{division.name}
@@ -393,94 +345,232 @@ export default function Home() {
 						</div>
 
 						{/* Active Division Content */}
-						{activeDivision !== null && orgData.divisions[activeDivision] && (
-							<div className="bg-white rounded-lg shadow-lg p-6">
-								<div className="mb-6">
-									<h3 className="text-xl font-bold text-[#003185] mb-4">
-										{orgData.divisions[activeDivision].name}
-									</h3>
+						{/* Single division active */}
+						{activeDivision !== null && activeDivisions.length === 0 && orgData.divisions[activeDivision] && (
+							<div>
+								{/* Division Title */}
+								<h2 className="text-xl font-bold text-gray-900 mb-6">
+									{orgData.divisions[activeDivision].name}
+								</h2>
 
-									{/* Division Director */}
-									{orgData.divisions[activeDivision].director && (
-										<div className="mb-6">
-											<h4 className="text-lg font-semibold text-gray-700 mb-3">Division Director</h4>
-											<LeadershipCard
-												person={orgData.divisions[activeDivision].director}
-												role="Director"
-											/>
-										</div>
-									)}
+								{orgData.divisions[activeDivision].directors.length > 0 && (
+									<div className="mb-6">
+										{orgData.divisions[activeDivision].directors.map((director, dIndex) => (
+											<div key={dIndex} className="flex items-center gap-2 mb-2">
+												<span className="font-medium text-gray-900">
+													{director.firstName} {director.lastName}
+												</span>
+												<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+													Director
+												</span>
+											</div>
+										))}
+										<div className="border-b border-gray-200 mt-4"></div>
+									</div>
+								)}
 
-									{/* Programs */}
-									{Object.keys(orgData.divisions[activeDivision].programs).length > 0 && (
-										<div className="mb-6">
-											<h4 className="text-lg font-semibold text-gray-700 mb-4">Programs</h4>
-											<div className="space-y-4">
-												{Object.values(orgData.divisions[activeDivision].programs).map((program, pIndex) => {
-													const isExpanded = expandedPrograms[`${activeDivision}-${program.name}`];
-													return (
-														<div key={pIndex} className="border border-gray-200 rounded-lg">
-															{/* Program Header */}
-															<button
-																onClick={() => toggleProgram(activeDivision, program.name)}
-																className="w-full p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-t-lg flex items-center justify-between"
+								{/* Programs - horizontal layout */}
+								{Object.keys(orgData.divisions[activeDivision].programs).length > 0 && (
+									<div className="flex flex-wrap gap-6 mb-6">
+										{Object.values(orgData.divisions[activeDivision].programs).map((program, pIndex) => (
+											<div key={pIndex} className="min-w-[220px] bg-gray-50 rounded-lg shadow-sm p-4 flex-1">
+												<h3 className="text-base font-medium text-gray-800 mb-3 text-center">
+													{program.name}
+												</h3>
+												<div className="space-y-1">
+													{program.employees.map((employee, eIndex) => {
+														const employmentStatus = getEmploymentStatus(employee);
+														const employeeIsManager = isManager(employee);
+
+														return (
+															<div
+																key={eIndex}
+																className={`flex items-center gap-2 ${
+																	employeeIsManager ? "" : "pl-6"
+																}`}
 															>
-																<h5 className="font-semibold text-[#003185]">{program.name}</h5>
-																<svg
-																	className={`w-5 h-5 transform transition-transform ${
-																		isExpanded ? 'rotate-180' : ''
+																<span
+																	className={`text-sm text-gray-700 ${
+																		employeeIsManager ? "font-bold" : ""
 																	}`}
-																	fill="none"
-																	stroke="currentColor"
-																	viewBox="0 0 24 24"
 																>
-																	<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-																</svg>
-															</button>
+																	{employee.firstName} {employee.lastName}
+																</span>
+																{employeeIsManager && (
+																	<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+																		Manager
+																	</span>
+																)}
+																{employmentStatus === 'contractor' && (
+																	<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+																		contractor
+																	</span>
+																)}
+															</div>
+														);
+													})}
+												</div>
+											</div>
+										))}
+									</div>
+								)}
 
-															{/* Program Content */}
-															{isExpanded && (
-																<div className="p-4 border-t border-gray-200">
-																	{/* Program Lead */}
-																	{program.lead && (
-																		<div className="mb-4">
-																			<h6 className="text-sm font-medium text-gray-600 mb-2">Program Lead</h6>
-																			<EmployeeCard employee={program.lead} isLead={true} />
+								{/* Division Staff (no program) */}
+								{orgData.divisions[activeDivision].employees.length > 0 && (
+									<div className={Object.keys(orgData.divisions[activeDivision].programs).length > 0 ? "mt-6 pt-6 border-t border-gray-200" : ""}>
+										<h3 className="text-base font-medium text-gray-800 mb-3">
+											Division Staff
+										</h3>
+										<div className="space-y-1 pl-4">
+											{orgData.divisions[activeDivision].employees.map((employee, eIndex) => {
+												const employmentStatus = getEmploymentStatus(employee);
+												const employeeIsManager = isManager(employee);
+
+												return (
+													<div key={eIndex} className="flex items-center gap-2">
+														<span className="text-sm text-gray-700">
+															{employee.firstName} {employee.lastName}
+														</span>
+														{employeeIsManager && (
+															<span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded">
+																Manager
+															</span>
+														)}
+														{employmentStatus === 'contractor' && (
+															<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+																contractor
+															</span>
+														)}
+														{employmentStatus === 'federal' && (
+															<span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">
+																federal
+															</span>
+														)}
+													</div>
+												);
+											})}
+										</div>
+									</div>
+								)}
+							</div>
+						)}
+
+						{/* Multiple divisions active (when deputy CIO is clicked) */}
+						{activeDivisions.length > 0 && (
+							<div className="space-y-8">
+								{activeDivisions.map((divisionIndex) => {
+									const division = orgData.divisions[divisionIndex];
+									if (!division) return null;
+
+									return (
+										<div key={divisionIndex} className="border-b border-gray-200 last:border-b-0 pb-6 last:pb-0">
+											{/* Division Title */}
+											<h2 className="text-xl font-bold text-gray-900 mb-6">
+												{division.name}
+											</h2>
+
+											{division.directors.length > 0 && (
+												<div className="mb-6">
+													{division.directors.map((director, dIndex) => (
+														<div key={dIndex} className="flex items-center gap-2 mb-2">
+															<span className="font-medium text-gray-900">
+																{director.firstName} {director.lastName}
+															</span>
+															<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+																Director
+															</span>
+														</div>
+													))}
+													<div className="border-b border-gray-200 mt-4"></div>
+												</div>
+											)}
+
+											{/* Programs - horizontal layout */}
+											{Object.keys(division.programs).length > 0 && (
+												<div className="flex flex-wrap gap-6 mb-6">
+													{Object.values(division.programs).map((program, pIndex) => (
+														<div key={pIndex} className="min-w-[220px] bg-gray-50 rounded-lg shadow-sm p-4 flex-1">
+															<h3 className="text-base font-medium text-gray-800 mb-3 text-center">
+																{program.name}
+															</h3>
+															<div className="space-y-1">
+																{program.employees.map((employee, eIndex) => {
+																	const employmentStatus = getEmploymentStatus(employee);
+																	const employeeIsManager = isManager(employee);
+
+																	return (
+																		<div
+																			key={eIndex}
+																			className={`flex items-center gap-2 ${
+																				employeeIsManager ? "" : "pl-6"
+																			}`}
+																		>
+																			<span
+																				className={`text-sm text-gray-700 ${
+																					employeeIsManager ? "font-bold" : ""
+																				}`}
+																			>
+																				{employee.firstName} {employee.lastName}
+																			</span>
+																			{employeeIsManager && (
+																				<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+																					Manager
+																				</span>
+																			)}
+																			{employmentStatus === 'contractor' && (
+																				<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+																					contractor
+																				</span>
+																			)}
 																		</div>
+																	);
+																})}
+															</div>
+														</div>
+													))}
+												</div>
+											)}
+
+											{/* Division Staff (no program) */}
+											{division.employees.length > 0 && (
+												<div className={Object.keys(division.programs).length > 0 ? "mt-6 pt-6 border-t border-gray-200" : ""}>
+													<h3 className="text-base font-medium text-gray-800 mb-3">
+														Division Staff
+													</h3>
+													<div className="space-y-1 pl-4">
+														{division.employees.map((employee, eIndex) => {
+															const employmentStatus = getEmploymentStatus(employee);
+															const employeeIsManager = isManager(employee);
+
+															return (
+																<div key={eIndex} className="flex items-center gap-2">
+																	<span className="text-sm text-gray-700">
+																		{employee.firstName} {employee.lastName}
+																	</span>
+																	{employeeIsManager && (
+																		<span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded">
+																			Manager
+																		</span>
 																	)}
-
-																	{/* Program Employees */}
-																	{program.employees.length > 0 && (
-																		<div>
-																			<h6 className="text-sm font-medium text-gray-600 mb-2">Team Members</h6>
-																			<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-																				{program.employees.map((employee, eIndex) => (
-																					<EmployeeCard key={eIndex} employee={employee} />
-																				))}
-																			</div>
-																		</div>
+																	{employmentStatus === 'contractor' && (
+																		<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+																			contractor
+																		</span>
+																	)}
+																	{employmentStatus === 'federal' && (
+																		<span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">
+																			federal
+																	</span>
 																	)}
 																</div>
-															)}
-														</div>
-													);
-												})}
-											</div>
+															);
+														})}
+													</div>
+												</div>
+											)}
 										</div>
-									)}
-
-									{/* Division-level Employees */}
-									{orgData.divisions[activeDivision].employees.length > 0 && (
-										<div>
-											<h4 className="text-lg font-semibold text-gray-700 mb-4">Division Staff</h4>
-											<div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-												{orgData.divisions[activeDivision].employees.map((employee, eIndex) => (
-													<EmployeeCard key={eIndex} employee={employee} />
-												))}
-											</div>
-										</div>
-									)}
-								</div>
+									);
+								})}
 							</div>
 						)}
 					</div>
@@ -488,11 +578,11 @@ export default function Home() {
 			</div>
 
 			{/* Footer */}
-			<div className="bg-[#003185] text-white text-center py-4 mt-12">
+			<footer className="bg-[#003185] text-white text-center py-4 w-full mt-auto">
 				<p className="text-sm">
 					NOAA | NMFS Office of the Chief Information Officer
 				</p>
-			</div>
+			</footer>
 		</div>
 	);
 }

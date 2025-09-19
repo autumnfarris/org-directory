@@ -26,105 +26,55 @@ function include(filename) {
 }
 
 /**
- * Fetch employee data from Google Sheets
- * This replaces the client-side axios call
+ * Fetch employee data directly from Google Sheets using SpreadsheetApp
+ * This replaces the CSV URL approach with direct sheet access
  */
 function getEmployeeData() {
   try {
-    // Your Google Sheets CSV URL
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS1f8f96GYNenNk4IGrnYlOcnAgoSrb0O7F6Uu1h_hXmujOMk9OgU5hCqerVT7OuIcLj4SlVqI39-DK/pub?output=csv";
+    // Your Google Sheets ID
+    const spreadsheetId = '19Muqry8NxRA6tI9VYxuf6z7vBzSS2H9RODsMhBV7neM';
 
-    const response = UrlFetchApp.fetch(csvUrl, {
-      muteHttpExceptions: true,
-      headers: {
-        'User-Agent': 'NMFS-OCIO-OrgChart/1.0'
-      }
-    });
+    // Open the spreadsheet by ID
+    const spreadsheet = SpreadsheetApp.openById(spreadsheetId);
 
-    if (response.getResponseCode() !== 200) {
-      console.log('Failed to fetch data, using fallback');
+    // Get the first sheet (or specify sheet name if needed)
+    const sheet = spreadsheet.getActiveSheet();
+
+    // Get all data from the sheet
+    const data = sheet.getDataRange().getValues();
+
+    if (!data || data.length === 0) {
+      console.log('No data found in sheet, using fallback data');
       return getFallbackData();
     }
 
-    const csvData = response.getContentText();
+    // First row contains headers
+    const headers = data[0];
+    const rows = data.slice(1);
 
-    if (!csvData) {
-      console.log('No CSV data received, using fallback data');
-      return getFallbackData();
-    }
-
-    // Parse CSV data
-    const rows = parseCsvData(csvData);
-
-    if (!rows || rows.length === 0) {
-      console.log('No data found in CSV, using fallback data');
-      return getFallbackData();
-    }
-
-    const headers = rows[0];
-    const employees = rows.slice(1).map(function(row) {
+    // Convert rows to employee objects
+    const employees = rows.map(function(row) {
       const employee = {};
       headers.forEach(function(header, index) {
-        const key = mapHeaderToKey(header.toUpperCase().trim());
-        employee[key] = row[index] || null;
+        const key = mapHeaderToKey(header.toString().toUpperCase().trim());
+        employee[key] = row[index] ? row[index].toString().trim() : null;
       });
       return employee;
+    }).filter(function(employee) {
+      // Filter out empty rows
+      return employee.firstName || employee.lastName || employee.email;
     });
 
     console.log('Successfully loaded ' + employees.length + ' employees from Google Sheets');
     return employees;
 
   } catch (error) {
-    console.error('Error fetching Google Sheets CSV data:', error);
+    console.error('Error accessing Google Sheets data:', error);
     console.log('Falling back to local data');
     return getFallbackData();
   }
 }
 
-/**
- * Parse CSV data - handles quoted fields with commas
- */
-function parseCsvData(csvText) {
-  const lines = csvText.split('\n').filter(function(line) {
-    return line.trim();
-  });
-  const rows = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const row = [];
-    let current = '';
-    let inQuotes = false;
-
-    for (let j = 0; j < line.length; j++) {
-      const char = line[j];
-      const nextChar = line[j + 1];
-
-      if (char === '"' && !inQuotes) {
-        inQuotes = true;
-      } else if (char === '"' && inQuotes) {
-        if (nextChar === '"') {
-          // Escaped quote
-          current += '"';
-          j++; // skip next quote
-        } else {
-          inQuotes = false;
-        }
-      } else if (char === ',' && !inQuotes) {
-        row.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-
-    // Add the last field
-    row.push(current.trim());
-    rows.push(row);
-  }
-
-  return rows;
-}
 
 /**
  * Map CSV headers to internal keys
