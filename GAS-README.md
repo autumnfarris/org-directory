@@ -1,6 +1,6 @@
-# NMFS OCIO Organization Directory - Google Apps Script Deployment
+# OCIO Organization Directory - Google Apps Script Deployment
 
-This project contains the NMFS Office of the Chief Information Officer organization directory, converted from a React/Next.js application to run entirely within Google Apps Script.
+This project contains the NOAA Office of the Chief Information Officer organization directory, converted from a React/Next.js application to run entirely within Google Apps Script.
 
 ## Overview
 
@@ -41,7 +41,7 @@ This will open a browser window to authenticate with your Google account.
 ### 3. Create a New Google Apps Script Project
 
 ```bash
-clasp create --title "NMFS OCIO Directory" --type webapp
+clasp create --title "NOAA OCIO Directory" --type webapp
 ```
 
 This command will:
@@ -53,7 +53,7 @@ This command will:
 If you prefer to create the project manually:
 1. Go to [Google Apps Script](https://script.google.com)
 2. Click "New Project"
-3. Name it "NMFS OCIO Directory"
+3. Name it "NOAA OCIO Directory"
 4. Note the script ID from the URL (e.g., `https://script.google.com/d/YOUR_SCRIPT_ID/edit`)
 5. Update `.clasp.json` with your script ID:
    ```json

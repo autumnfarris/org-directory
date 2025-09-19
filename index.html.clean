@@ -128,314 +128,163 @@
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
             loadData();
-        });                function organizeEmployeeData(employees) {
-          const cio = employees.find(emp => emp.title && emp.title.toLowerCase().includes('chief information officer') && !emp.title.toLowerCase().includes('deputy'));
-          const deputyCIO = employees.filter(emp => emp.title && emp.title.toLowerCase().includes('deputy cio'));
-          deputyCIO.forEach(emp => {
-            const associatedDivisions = employees.filter(e => e.manager && emp.firstName && emp.lastName && e.manager.toLowerCase().includes(`${emp.firstName.toLowerCase()} ${emp.lastName.toLowerCase()}`)).map(e => {
-              if (e.division && e.division.startsWith('CIO/')) {
-                const parts = e.division.split('/');
-                return parts.length >= 2 ? parts[1].replace(/\s+$/, '') : 'CIO';
-              }
-              return e.division;
-            }).filter((value, index, self) => value && self.indexOf(value) === index); // unique values
-            emp.divisionsOwned = associatedDivisions;
-          });
-          const divisions = {};
-          employees.forEach(employee => {
-            if (employee.division && employee.division.trim()) {
-              let divisionName = employee.division.trim();
-              // Extract value after CIO/ and before the second /
-              if (divisionName.startsWith('CIO/')) {
-                const parts = divisionName.split('/');
-                if (parts.length >= 2) {
-                  divisionName = parts[1].replace(/\s+$/, '');
-                } else {
-                  divisionName = 'CIO';
-                }
-              }
-              if (!divisions[divisionName]) {
-                divisions[divisionName] = {
-                  name: divisionName,
-                  directors: [],
-                  programs: {},
-                  employees: []
-                };
-              }
-              // Check if employee is a director
-              if (employee.title && employee.title.toLowerCase().includes('director')) {
-                divisions[divisionName].directors.push(employee);
-                return; // Don't add directors to regular employee lists
-              }
-              // If employee has a program, organize by program
-              if (employee.program && employee.program.trim()) {
-                const programName = employee.program.trim();
-                if (!divisions[divisionName].programs[programName]) {
-                  divisions[divisionName].programs[programName] = {
-                    name: programName,
-                    employees: []
-                  };
-                }
-                divisions[divisionName].programs[programName].employees.push(employee);
-              } else {
-                // Employee belongs directly to division (no program)
-                divisions[divisionName].employees.push(employee);
-              }
-            }
-          });
-          // Sort employees within each program and division (managers first)
-          Object.values(divisions).forEach(division => {
-            division.employees.sort((a, b) => {
-              const aIsManager = isManager(a);
-              const bIsManager = isManager(b);
-              if (aIsManager && !bIsManager) return -1;
-              if (!aIsManager && bIsManager) return 1;
-              return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
-            });
-            Object.values(division.programs).forEach(program => {
-              program.employees.sort((a, b) => {
-                const aIsManager = isManager(a);
-                const bIsManager = isManager(b);
-                if (aIsManager && !bIsManager) return -1;
-                if (!aIsManager && bIsManager) return 1;
-                return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
-              });
-            });
-          });
-          console.log("employees:", employees);
-          return {
-            cio,
-            deputyCIO,
-            divisions: Object.values(divisions)
-          };
-        }
-                        return e.division;
-                    })
-                    .filter((value, index, self) => value && self.indexOf(value) === index); // unique values
-                emp.divisionsOwned = associatedDivisions;
-            });
-
-            const divisions = {};
-
-            employees.forEach(employee => {
-                if (employee.division && employee.division.trim()) {
-                    let divisionName = employee.division.trim();
-
-                    // Extract value after CIO/ and before the second /
-                    if (divisionName.startsWith('CIO/')) {
-                        const parts = divisionName.split('/');
-                        if (parts.length >= 2) {
-                            divisionName = parts[1].replace(/\s+$/, '');
-                        } else {
-                            divisionName = 'CIO';
-                        }
-                    }
-
-                    if (!divisions[divisionName]) {
-                        divisions[divisionName] = {
-                            name: divisionName,
-                            directors: [],
-                            programs: {},
-                            employees: []
-                        };
-                    }
-
-                    // Check if employee is a director
-                    if (employee.title && employee.title.toLowerCase().includes('director')) {
-                        divisions[divisionName].directors.push(employee);
-                        return; // Don't add directors to regular employee lists
-                    }
-
-                    // If employee has a program, organize by program
-                    if (employee.program && employee.program.trim()) {
-                        const programName = employee.program.trim();
-
-                        if (!divisions[divisionName].programs[programName]) {
-                            divisions[divisionName].programs[programName] = {
-                                name: programName,
-                                employees: []
-                            };
-                        }
-
-                        divisions[divisionName].programs[programName].employees.push(employee);
-                    } else {
-                        // Employee belongs directly to division (no program)
-                        divisions[divisionName].employees.push(employee);
-                    }
-                }
-            });
-
-            // Sort employees within each program and division (managers first)
-            Object.values(divisions).forEach(division => {
-                division.employees.sort((a, b) => {
-                    const aIsManager = isManager(a);
-                    const bIsManager = isManager(b);
-                    if (aIsManager && !bIsManager) return -1;
-                    if (!aIsManager && bIsManager) return 1;
-                    return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
-                });
-
-                Object.values(division.programs).forEach(program => {
-                    program.employees.sort((a, b) => {
-                        const aIsManager = isManager(a);
-                        const bIsManager = isManager(b);
-                        if (aIsManager && !bIsManager) return -1;
-                        if (!aIsManager && bIsManager) return 1;
-                        return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
-                    });
-                });
-            });
-
-            console.log("employees:", employees);
-
-            return {
-                cio,
-                deputyCIO,
-                divisions: Object.values(divisions)
-            };
-        }
-
-        async                async function fetchEmployeeData() {
-          try {
-            // Environment detection
-            const isGAS = typeof google !== '' && google.script;
-            const isLocalDev = window.NODE_ENV || "production" === 'development';
-            if (isGAS) {
-              // Running in Google Apps Script environment
-              console.log('Fetching data from Google Apps Script backend...');
-              return new Promise((resolve, reject) => {
-                google.script.run.withSuccessHandler(function (employees) {
-                  console.log(`Successfully loaded ${employees?.length || 0} employees from GAS backend`);
-                  if (!employees || !Array.isArray(employees) || employees.length === 0) {
-                    console.warn('No employee data received from GAS, using fallback data');
-                    resolve(getFallbackData());
-                  } else {
-                    resolve(employees);
-                  }
-                }).withFailureHandler(function (error) {
-                  console.error('Error fetching employee data from GAS:', error);
-                  console.warn('Falling back to local data');
-                  resolve(getFallbackData());
-                }).getEmployeeData();
-              });
-            } else {
-              // Running in Next.js environment (local dev or production)
-              console.log('Fetching data from Next.js API...');
-              console.log('Environment: ', {
-                NODE_ENV: window.NODE_ENV || "production",
-                isLocalDev,
-                isGAS: false
-              });
-              const response = await axios.get('/api/employees', {
-                timeout: 10000 // 10 second timeout
-              });
-              console.log("response: ", response);
-              const employees = response.data;
-              if (!employees || !Array.isArray(employees) || employees.length === 0) {
-                console.warn('No employee data received from API, using fallback data');
-                return getFallbackData();
-              }
-              console.log(`Successfully loaded ${employees.length} employees from Next.js API`);
-              return employees;
-            }
-          } catch (error) {
-            console.error('Error fetching employee data:', error);
-            console.warn('Falling back to local data');
-            return getFallbackData();
-          }
-        } else {
-                                    resolve(employees);
-                                }
-                            })
-                            .withFailureHandler(function(error) {
-                                console.error('Error fetching employee data from GAS:', error);
-                                console.warn('Falling back to local data');
-                                resolve(getFallbackData());
-                            })
-                            .getEmployeeData();
-                    });
-                } else {
-                    // Running in Next.js environment (local dev or production)
-                    console.log('Fetching data from Next.js API...');
-                    console.log('Environment: ', {
-                        NODE_ENV: window.NODE_ENV || "production",
-                        isLocalDev,
-                        isGAS: false
-                    });
-
-                    const response = await axios.get('/api/employees', {
-                        timeout: 10000, // 10 second timeout
-                    });
-
-                    console.log("response: ", response);
-
-                    const employees = response.data;
-
-                    if (!employees || !Array.isArray(employees) || employees.length === 0) {
-                        console.warn('No employee data received from API, using fallback data');
-                        return getFallbackData();
-                    }
-
-                    console.log(`Successfully loaded ${employees.length} employees from Next.js API`);
-                    return employees;
-                }
-            } catch (error) {
-                console.error('Error fetching employee data:', error);
-                console.warn('Falling back to local data');
-                return getFallbackData();
-            }
-        }
-
-        // Fallback data function (placeholder)
-        function getFallbackData() {
-            // In a real implementation, this would return the fallback data
-            // For now, return an empty array
-            console.warn('Using empty fallback data');
-            return [];
-        }
-
-        async                function loadData() {
-          try {
-            const employees = await fetchEmployeeData();
-            const organizedData = organizeEmployeeData(employees);
-            const filteredDivisions = organizedData?.divisions?.filter(div => !['CIO', 'DDCIO1', 'DDCIO2'].includes(div.name?.toUpperCase())) || [];
-            setOrgData({
-              cio: organizedData.cio,
-              deputyCIO: organizedData.deputyCIO,
-              divisions: filteredDivisions
-            });
-            loading = false;
-            if (filteredDivisions.length > 0) {
-              activeDivision = 0;
-              activeDivisions = []; // Reset multiple divisions when data loads
-              activeDeputy = null; // Reset active deputy when data loads
-            }
-          } catch (err) {
-            error = err.message;
-            loading = false;
-          }
         });
 
-                hideLoading();
-                document.getElementById('main-app').classList.remove('hidden');
-                renderApplication();
-
-                if (filteredDivisions.length > 0) {
-                    activeDivision = 0;
-                    activeDivisions = []; // Reset multiple divisions when data loads
-                    activeDeputy = null; // Reset active deputy when data loads
-                    renderDivisionContent();
-                }
-            } catch (err) {
-                showError(err.message);
-            }
-        }                function getEmploymentStatus(employee) {
-          const federalCodes = ['GS', 'FED', 'FEDERAL'];
-          const status = employee.empl_code || '';
-          return federalCodes.some(code => status.toUpperCase().includes(code)) ? 'federal' : 'contractor';
-        }                function isManager(employee) {
-          return employee.title && (employee.title.toLowerCase().includes('director') || employee.title.toLowerCase().includes('manager') || employee.title.toLowerCase().includes('lead') || employee.title.toLowerCase().includes('chief') || employee.title.toLowerCase().includes('deputy'));
+        // Utility functions - will be replaced by syncundefinedfunction organizeEmployeeData(employees) {
+  const cio = employees.find(emp => emp.title && emp.title.toLowerCase().includes('chief information officer') && !emp.title.toLowerCase().includes('deputy'));
+  const deputyCIO = employees.filter(emp => emp.title && emp.title.toLowerCase().includes('deputy cio'));
+  deputyCIO.forEach(emp => {
+    const associatedDivisions = employees.filter(e => e.manager && emp.firstName && emp.lastName && e.manager.toLowerCase().includes(`${emp.firstName.toLowerCase()} ${emp.lastName.toLowerCase()}`)).map(e => {
+      if (e.division && e.division.startsWith('CIO/')) {
+        const parts = e.division.split('/');
+        return parts.length >= 2 ? parts[1].replace(/\s+$/, '') : 'CIO';
+      }
+      return e.division;
+    }).filter((value, index, self) => value && self.indexOf(value) === index); // unique values
+    emp.divisionsOwned = associatedDivisions;
+  });
+  const divisions = {};
+  employees.forEach(employee => {
+    if (employee.division && employee.division.trim()) {
+      let divisionName = employee.division.trim();
+      // Extract value after CIO/ and before the second /
+      if (divisionName.startsWith('CIO/')) {
+        const parts = divisionName.split('/');
+        if (parts.length >= 2) {
+          divisionName = parts[1].replace(/\s+$/, '');
+        } else {
+          divisionName = 'CIO';
         }
+      }
+      if (!divisions[divisionName]) {
+        divisions[divisionName] = {
+          name: divisionName,
+          directors: [],
+          programs: {},
+          employees: []
+        };
+      }
+      // Check if employee is a director
+      if (employee.title && employee.title.toLowerCase().includes('director')) {
+        divisions[divisionName].directors.push(employee);
+        return; // Don't add directors to regular employee lists
+      }
+      // If employee has a program, organize by program
+      if (employee.program && employee.program.trim()) {
+        const programName = employee.program.trim();
+        if (!divisions[divisionName].programs[programName]) {
+          divisions[divisionName].programs[programName] = {
+            name: programName,
+            employees: []
+          };
+        }
+        divisions[divisionName].programs[programName].employees.push(employee);
+      } else {
+        // Employee belongs directly to division (no program)
+        divisions[divisionName].employees.push(employee);
+      }
+    }
+  });
+  // Sort employees within each program and division (managers first)
+  Object.values(divisions).forEach(division => {
+    division.employees.sort((a, b) => {
+      const aIsManager = isManager(a);
+      const bIsManager = isManager(b);
+      if (aIsManager && !bIsManager) return -1;
+      if (!aIsManager && bIsManager) return 1;
+      return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
+    });
+    Object.values(division.programs).forEach(program => {
+      program.employees.sort((a, b) => {
+        const aIsManager = isManager(a);
+        const bIsManager = isManager(b);
+        if (aIsManager && !bIsManager) return -1;
+        if (!aIsManager && bIsManager) return 1;
+        return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
+      });
+    });
+  });
+  console.log("employees:", employees);
+  return {
+    cio,
+    deputyCIO,
+    divisions: Object.values(divisions)
+  };
+}undefinedasync function fetchEmployeeData() {
+  try {
+    // Environment detection
+    const isGAS = typeof google !== 'undefined' && google.script;
+    const isLocalDev = window.NODE_ENV || "production" === 'development';
+    if (isGAS) {
+      // Running in Google Apps Script environment
+      console.log('Fetching data from Google Apps Script backend...');
+      return new Promise((resolve, reject) => {
+        google.script.run.withSuccessHandler(function (employees) {
+          console.log(`Successfully loaded ${employees?.length || 0} employees from GAS backend`);
+          if (!employees || !Array.isArray(employees) || employees.length === 0) {
+            console.warn('No employee data received from GAS, using fallback data');
+            resolve(fallbackData);
+          } else {
+            resolve(employees);
+          }
+        }).withFailureHandler(function (error) {
+          console.error('Error fetching employee data from GAS:', error);
+          console.warn('Falling back to local data');
+          resolve(fallbackData);
+        }).getEmployeeData();
+      });
+    } else {
+      // Running in Next.js environment (local dev or production)
+      console.log('Fetching data from Next.js API...');
+      console.log('Environment: ', {
+        NODE_ENV: window.NODE_ENV || "production",
+        isLocalDev,
+        isGAS: false
+      });
+      const response = await axios.get('/api/employees', {
+        timeout: 10000 // 10 second timeout
+      });
+      console.log("response: ", response);
+      const employees = response.data;
+      if (!employees || !Array.isArray(employees) || employees.length === 0) {
+        console.warn('No employee data received from API, using fallback data');
+        return fallbackData;
+      }
+      console.log(`Successfully loaded ${employees.length} employees from Next.js API`);
+      return employees;
+    }
+  } catch (error) {
+    console.error('Error fetching employee data:', error);
+    console.warn('Falling back to local data');
+    return fallbackData;
+  }
+}undefinedfunction loadData() {
+  try {
+    const employees = await fetchEmployeeData();
+    const organizedData = organizeEmployeeData(employees);
+    const filteredDivisions = organizedData?.divisions?.filter(div => !['CIO', 'DDCIO1', 'DDCIO2'].includes(div.name?.toUpperCase())) || [];
+    setOrgData({
+      cio: organizedData.cio,
+      deputyCIO: organizedData.deputyCIO,
+      divisions: filteredDivisions
+    });
+    loading = false;
+    if (filteredDivisions.length > 0) {
+      activeDivision = 0;
+      activeDivisions = []; // Reset multiple divisions when data loads
+      activeDeputy = null; // Reset active deputy when data loads
+    }
+  } catch (err) {
+    error = err.message;
+    loading = false;
+  }
+}undefinedfunction getEmploymentStatus(employee) {
+  const federalCodes = ['GS', 'FED', 'FEDERAL'];
+  const status = employee.empl_code || '';
+  return federalCodes.some(code => status.toUpperCase().includes(code)) ? 'federal' : 'contractor';
+}undefinedfunction isManager(employee) {
+  return employee.title && (employee.title.toLowerCase().includes('director') || employee.title.toLowerCase().includes('manager') || employee.title.toLowerCase().includes('lead') || employee.title.toLowerCase().includes('chief') || employee.title.toLowerCase().includes('deputy'));
+}
 
         // Helper functions
         function showError(message) {
@@ -479,7 +328,7 @@
                     return `
                         <button
                             type="button"
-                            class="hover:none focus:outline-none px-2 py-1 rounded ${
+                            class="hover:underline focus:outline-none px-2 py-1 rounded ${
                                 activeDeputy === idx ? 'bg-nmfs-blue text-white' : 'bg-transparent text-gray-900'
                             } ${isOwner ? 'border border-nmfs-blue bg-blue-50 text-nmfs-blue' : ''}"
                             onclick="handleDeputyClick(${idx})"

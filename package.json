@@ -9,8 +9,11 @@
     "lint": "eslint",
     "predeploy": "npm run build",
     "deploy": "npx gh-pages -d out",
-    "sync-html": "node sync-to-html.js",
-    "watch-sync": "node watch-and-sync.js"
+    "sync": "node sync.js",
+    "sync:watch": "node watch-and-sync.js",
+    "sync:legacy": "node sync-to-html.js",
+    "watch-sync": "node watch-and-sync.js",
+    "sync-html": "node sync-to-html.js"
   },
   "dependencies": {
     "axios": "^1.12.2",
@@ -19,6 +22,9 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@babel/generator": "^7.26.2",
+    "@babel/parser": "^7.26.2",
+    "@babel/traverse": "^7.26.2",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "eslint": "^9",

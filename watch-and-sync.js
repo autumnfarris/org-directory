@@ -2,17 +2,21 @@
 
 const fs = require('fs');
 const path = require('path');
-const ReactToHtmlConverter = require('./sync-to-html');
+const { SyncOrchestrator } = require('./sync');
 
 /**
  * File watcher that automatically syncs page.js changes to index.html
+ * Now uses the robust AST-based sync engine for reliable updates
  */
 class FileWatcher {
     constructor() {
-        this.converter = new ReactToHtmlConverter();
+        this.orchestrator = new SyncOrchestrator();
         this.pageJsPath = './src/app/page.js';
+        this.indexHtmlPath = './index.html';
         this.debounceTimeout = null;
-        this.debounceDelay = 1000; // 1 second
+        this.debounceDelay = 1500; // 1.5 seconds to account for AST processing
+
+        console.log('🚀 Using improved AST-based sync engine for reliable updates');
     }
 
     /**
@@ -23,12 +27,13 @@ class FileWatcher {
             clearTimeout(this.debounceTimeout);
         }
 
-        this.debounceTimeout = setTimeout(() => {
-            console.log(`\n📝 ${new Date().toLocaleTimeString()} - page.js changed, syncing to index.html...`);
+        this.debounceTimeout = setTimeout(async () => {
+            const timestamp = new Date().toLocaleTimeString();
+            console.log(`\n📝 ${timestamp} - page.js changed, syncing to index.html...`);
             try {
-                this.converter.updateHtml();
+                await this.orchestrator.sync(this.pageJsPath, this.indexHtmlPath);
             } catch (error) {
-                console.error('Sync failed:', error.message);
+                console.error(`❌ Sync failed at ${timestamp}:`, error.message);
             }
         }, this.debounceDelay);
     }
@@ -36,7 +41,7 @@ class FileWatcher {
     /**
      * Start watching for file changes
      */
-    start() {
+    async start() {
         console.log('🔍 Watching for changes in src/app/page.js...');
         console.log('📋 Changes will automatically sync to index.html');
         console.log('⏹️  Press Ctrl+C to stop watching\n');
@@ -44,9 +49,10 @@ class FileWatcher {
         // Perform initial sync
         console.log('🔄 Performing initial sync...');
         try {
-            this.converter.updateHtml();
+            await this.orchestrator.sync(this.pageJsPath, this.indexHtmlPath);
         } catch (error) {
-            console.error('Initial sync failed:', error.message);
+            console.error('❌ Initial sync failed:', error.message);
+            console.log('🔍 Will continue watching for changes...\n');
         }
 
         // Watch for changes
@@ -69,7 +75,10 @@ class FileWatcher {
 // Run the watcher
 if (require.main === module) {
     const watcher = new FileWatcher();
-    watcher.start();
+    watcher.start().catch(error => {
+        console.error('💥 Watcher startup failed:', error);
+        process.exit(1);
+    });
 }
 
 module.exports = FileWatcher;
