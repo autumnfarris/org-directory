@@ -227,7 +227,7 @@ export default function Home() {
 			<div className="min-h-screen flex items-center justify-center bg-gray-50">
 				<div className="text-center">
 					<div className="w-12 h-12 border-4 border-[#003185] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-					<div className="text-lg text-[#003185]">Loading NMFS OCIO Organization Data...</div>
+					<div className="text-lg text-[#003185]">Loading OCIO Organization Data...</div>
 				</div>
 			</div>
 		);
@@ -250,7 +250,7 @@ export default function Home() {
 			<div className="bg-[#003185] text-white">
 				<div className="max-w-6xl mx-auto px-6 py-8">
 					<h1 className="text-3xl font-bold text-center">
-						NMFS Office of the Chief Information Officer
+						NOAA Office of the Chief Information Officer
 					</h1>
 					<p className="text-center text-blue-100 mt-2">Organization Directory</p>
 				</div>
@@ -287,7 +287,7 @@ export default function Home() {
 									<button
 										key={idx}
 										type="button"
-										className={`hover:underline focus:outline-none px-2 py-1 rounded ${
+										className={`hover:none focus:outline-none px-2 py-1 rounded ${
 											activeDeputy === idx ? 'bg-[#003185] text-white' : 'bg-transparent text-gray-900'
 										} ${isOwner ? 'border border-[#003185] bg-blue-50 text-[#003185]' : ''}`}
 										onClick={() => {
@@ -401,9 +401,9 @@ export default function Home() {
 																		Manager
 																	</span>
 																)}
-																{employmentStatus === 'contractor' && (
+																{employmentStatus === 'federal' && (
 																	<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-																		contractor
+																		Federal
 																	</span>
 																)}
 															</div>
@@ -432,18 +432,13 @@ export default function Home() {
 															{employee.firstName} {employee.lastName}
 														</span>
 														{employeeIsManager && (
-															<span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded">
+															<span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded">
 																Manager
 															</span>
 														)}
-														{employmentStatus === 'contractor' && (
-															<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-																contractor
-															</span>
-														)}
 														{employmentStatus === 'federal' && (
-															<span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">
-																federal
+															<span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
+																Federal
 															</span>
 														)}
 													</div>
@@ -517,9 +512,9 @@ export default function Home() {
 																					Manager
 																				</span>
 																			)}
-																			{employmentStatus === 'contractor' && (
+																			{employmentStatus === 'federal' && (
 																				<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-																					contractor
+																					Federal
 																				</span>
 																			)}
 																		</div>
@@ -535,7 +530,7 @@ export default function Home() {
 											{division.employees.length > 0 && (
 												<div className={Object.keys(division.programs).length > 0 ? "mt-6 pt-6 border-t border-gray-200" : ""}>
 													<h3 className="text-base font-medium text-gray-800 mb-3">
-														Division Staff
+														UNSPECIFIED
 													</h3>
 													<div className="space-y-1 pl-4">
 														{division.employees.map((employee, eIndex) => {
@@ -548,17 +543,12 @@ export default function Home() {
 																		{employee.firstName} {employee.lastName}
 																	</span>
 																	{employeeIsManager && (
-																		<span className="px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded">
+																		<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
 																			Manager
 																		</span>
 																	)}
-																	{employmentStatus === 'contractor' && (
-																		<span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-																			contractor
-																		</span>
-																	)}
 																	{employmentStatus === 'federal' && (
-																		<span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded">
+																		<span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
 																			federal
 																	</span>
 																	)}
@@ -580,7 +570,7 @@ export default function Home() {
 			{/* Footer */}
 			<footer className="bg-[#003185] text-white text-center py-4 w-full mt-auto">
 				<p className="text-sm">
-					NOAA | NMFS Office of the Chief Information Officer
+					NOAA | Office of the Chief Information Officer
 				</p>
 			</footer>
 		</div>

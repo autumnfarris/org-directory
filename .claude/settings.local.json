@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(curl:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(npm run sync:*)"
     ],
     "deny": [],
     "ask": []
