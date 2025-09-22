@@ -3,7 +3,8 @@ import fallbackData from '../../../data/fallback-employees.json';
 
 // Environment detection
 const isLocalDevelopment = process.env.NODE_ENV === 'development';
-const isGAS = typeof google !== 'undefined' && google.script;
+// const isGAS = typeof google !== 'undefined' && google.script;
+const isGAS = (typeof globalThis !== "undefined" && "google" in globalThis && globalThis.google?.script) || false;
 
 // Google Sheets published CSV URL
 const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS1f8f96GYNenNk4IGrnYlOcnAgoSrb0O7F6Uu1h_hXmujOMk9OgU5hCqerVT7OuIcLj4SlVqI39-DK/pub?output=csv";

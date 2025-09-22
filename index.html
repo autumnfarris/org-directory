@@ -3,34 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NMFS OCIO Directory</title>
+    <title>NOAA OCIO Directory</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'nmfs-blue': '#003185',
-                        'nmfs-light-blue': '#0085ca'
-                    }
-                }
-            }
-        }
-    </script>
 
     <style>
+        :root {
+            --background: #f5f3f0;
+            --foreground: #003249;
+            --primary: #007ea7;
+            --primary-dark: #003249;
+            --secondary: #b3e6ee;
+            --accent: #c2e9ed;
+            --light-accent: #e6f6f8;
+            --text-light: #ccdbdc;
+            --border: #80ced7;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --background: #003249;
+                --foreground: #ccdbdc;
+                --primary: #80ced7;
+                --primary-dark: #007ea7;
+                --secondary: #4fc3d9;
+                --accent: #9ad1d4;
+                --light-accent: #80ced7;
+                --text-light: #ccdbdc;
+                --border: #80ced7;
+            }
+        }
+
         body {
             font-family: Arial, Helvetica, sans-serif;
+            background: var(--background);
+            color: var(--foreground);
         }
 
         .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #003185;
-            border-radius: 50%;
             width: 48px;
             height: 48px;
+            position: relative;
+        }
+
+        .loading-spinner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 4px solid var(--foreground);
+            opacity: 0.2;
+        }
+
+        .loading-spinner::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 4px solid var(--foreground);
+            border-top-color: transparent;
             animation: spin 1s linear infinite;
         }
 
@@ -49,22 +81,22 @@
         }
     </style>
 </head>
-<body class="bg-white min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
 
     <!-- Loading Screen -->
-    <div id="loading-screen" class="min-h-screen flex items-center justify-center bg-gray-50">
+    <div id="loading-screen" class="min-h-screen flex items-center justify-center">
         <div class="text-center">
             <div class="loading-spinner mx-auto mb-4"></div>
-            <div class="text-lg text-nmfs-blue">Loading NMFS OCIO Organization Data...</div>
+            <div class="text-lg" style="color: var(--foreground)">Loading OCIO Organization Data...</div>
         </div>
     </div>
 
     <!-- Error Screen -->
-    <div id="error-screen" class="min-h-screen flex items-center justify-center bg-gray-50 hidden">
+    <div id="error-screen" class="min-h-screen flex items-center justify-center hidden">
         <div class="text-center p-6 bg-white rounded-lg shadow-lg">
             <div class="text-red-600 text-lg font-semibold mb-2">Error Loading Data</div>
-            <div id="error-message" class="text-gray-600"></div>
-            <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-nmfs-blue text-white rounded hover:bg-blue-800">
+            <div id="error-message" style="color: var(--foreground)"></div>
+            <button onclick="location.reload()" class="mt-4 px-4 py-2 text-white rounded hover:opacity-80" style="background: var(--primary)">
                 Retry
             </button>
         </div>
@@ -73,29 +105,29 @@
     <!-- Main Application -->
     <div id="main-app" class="hidden min-h-screen flex flex-col">
         <!-- Header -->
-        <div class="bg-nmfs-blue text-white">
+        <div class="text-white" style="background: var(--primary-dark)">
             <div class="max-w-6xl mx-auto px-6 py-8">
                 <h1 class="text-3xl font-bold text-center">
-                    NMFS Office of the Chief Information Officer
+                    NOAA Office of the Chief Information Officer
                 </h1>
-                <p class="text-center text-blue-100 mt-2">Organization Directory</p>
+                <p class="text-center mt-2" style="color: var(--secondary)">Organization Directory</p>
             </div>
         </div>
 
-        <div class="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
+        <div class="flex-1 max-w-5xl mx-auto px-6 py-8 w-full">
             <!-- CIO Section -->
             <div id="cio-section" class="mb-8 flex flex-col items-center">
-                <div class="text-sm font-medium text-gray-600 mb-2 text-center">Chief Information Officer</div>
-                <div id="cio-name" class="text-xl font-semibold text-gray-900 mb-4 text-center">Chief Information Officer Name</div>
-                <div class="border-b border-gray-200 w-full"></div>
+                <div class="text-lg font-medium mb-2 text-center" style="color: var(--primary-dark)">Chief Information Officer</div>
+                <div id="cio-name" class="text-xl font-semibold mb-4 text-center" style="color: var(--foreground)">Chief Information Officer Name</div>
+                <div class="border-b w-full" style="border-color: var(--border)"></div>
             </div>
 
             <!-- Deputy CIO Section -->
             <div id="deputy-cio-section" class="mb-8 flex flex-col items-center">
-                <div id="deputy-cio-container" class="flex flex-wrap justify-center gap-10 text-lg font-semibold text-gray-900 mb-4">
+                <div id="deputy-cio-container" class="flex flex-wrap justify-center gap-10 text-lg font-semibold mb-4" style="color: var(--foreground)">
                     <span id="deputy-cio-name">Deputy CIO Name</span>
                 </div>
-                <div class="border-b border-gray-200 w-full"></div>
+                <div class="border-b w-full" style="border-color: var(--border)"></div>
             </div>
 
             <!-- Divisions Section -->
@@ -109,9 +141,9 @@
         </div>
 
         <!-- Footer -->
-        <footer class="bg-nmfs-blue text-white text-center py-4 w-full mt-auto">
+        <footer class="text-white text-center py-4 w-full mt-auto" style="background: var(--primary)">
             <p class="text-sm">
-                NOAA | NMFS Office of the Chief Information Officer
+                NOAA | Office of the Chief Information Officer
             </p>
         </footer>
     </div>
@@ -128,7 +160,9 @@
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
             loadData();
-        });                function organizeEmployeeData(employees) {
+        });
+
+        function organizeEmployeeData(employees) {
           const cio = employees.find(emp => emp.title && emp.title.toLowerCase().includes('chief information officer') && !emp.title.toLowerCase().includes('deputy'));
           const deputyCIO = employees.filter(emp => emp.title && emp.title.toLowerCase().includes('deputy cio'));
           deputyCIO.forEach(emp => {
@@ -188,17 +222,35 @@
             division.employees.sort((a, b) => {
               const aIsManager = isManager(a);
               const bIsManager = isManager(b);
+              // Managers always on top
               if (aIsManager && !bIsManager) return -1;
               if (!aIsManager && bIsManager) return 1;
-              return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
+              // Both are managers or both are not managers
+              const aStatus = getEmploymentStatus(a);
+              const bStatus = getEmploymentStatus(b);
+              // Federal before contractor
+              if (aStatus !== bStatus) {
+                return aStatus === 'federal' ? -1 : 1;
+              }
+              // Alphabetical by first name within status
+              return a.firstName.localeCompare(b.firstName);
             });
             Object.values(division.programs).forEach(program => {
               program.employees.sort((a, b) => {
                 const aIsManager = isManager(a);
                 const bIsManager = isManager(b);
+                // Managers always on top
                 if (aIsManager && !bIsManager) return -1;
                 if (!aIsManager && bIsManager) return 1;
-                return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
+                // Both are managers or both are not managers
+                const aStatus = getEmploymentStatus(a);
+                const bStatus = getEmploymentStatus(b);
+                // Federal before contractor
+                if (aStatus !== bStatus) {
+                  return aStatus === 'federal' ? -1 : 1;
+                }
+                // Alphabetical by first name within status
+                return a.firstName.localeCompare(b.firstName);
               });
             });
           });
@@ -209,93 +261,8 @@
             divisions: Object.values(divisions)
           };
         }
-                        return e.division;
-                    })
-                    .filter((value, index, self) => value && self.indexOf(value) === index); // unique values
-                emp.divisionsOwned = associatedDivisions;
-            });
 
-            const divisions = {};
-
-            employees.forEach(employee => {
-                if (employee.division && employee.division.trim()) {
-                    let divisionName = employee.division.trim();
-
-                    // Extract value after CIO/ and before the second /
-                    if (divisionName.startsWith('CIO/')) {
-                        const parts = divisionName.split('/');
-                        if (parts.length >= 2) {
-                            divisionName = parts[1].replace(/\s+$/, '');
-                        } else {
-                            divisionName = 'CIO';
-                        }
-                    }
-
-                    if (!divisions[divisionName]) {
-                        divisions[divisionName] = {
-                            name: divisionName,
-                            directors: [],
-                            programs: {},
-                            employees: []
-                        };
-                    }
-
-                    // Check if employee is a director
-                    if (employee.title && employee.title.toLowerCase().includes('director')) {
-                        divisions[divisionName].directors.push(employee);
-                        return; // Don't add directors to regular employee lists
-                    }
-
-                    // If employee has a program, organize by program
-                    if (employee.program && employee.program.trim()) {
-                        const programName = employee.program.trim();
-
-                        if (!divisions[divisionName].programs[programName]) {
-                            divisions[divisionName].programs[programName] = {
-                                name: programName,
-                                employees: []
-                            };
-                        }
-
-                        divisions[divisionName].programs[programName].employees.push(employee);
-                    } else {
-                        // Employee belongs directly to division (no program)
-                        divisions[divisionName].employees.push(employee);
-                    }
-                }
-            });
-
-            // Sort employees within each program and division (managers first)
-            Object.values(divisions).forEach(division => {
-                division.employees.sort((a, b) => {
-                    const aIsManager = isManager(a);
-                    const bIsManager = isManager(b);
-                    if (aIsManager && !bIsManager) return -1;
-                    if (!aIsManager && bIsManager) return 1;
-                    return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
-                });
-
-                Object.values(division.programs).forEach(program => {
-                    program.employees.sort((a, b) => {
-                        const aIsManager = isManager(a);
-                        const bIsManager = isManager(b);
-                        if (aIsManager && !bIsManager) return -1;
-                        if (!aIsManager && bIsManager) return 1;
-                        return `${a.lastName}, ${a.firstName}`.localeCompare(`${b.lastName}, ${b.firstName}`);
-                    });
-                });
-            });
-
-            console.log("employees:", employees);
-
-            return {
-                cio,
-                deputyCIO,
-                divisions: Object.values(divisions)
-            };
-        }
-
-        async                async function fetchEmployeeData() {
+        async function fetchEmployeeData() {
           try {
             // Environment detection
             const isGAS = typeof google !== '' && google.script;
@@ -343,47 +310,6 @@
             console.warn('Falling back to local data');
             return getFallbackData();
           }
-        } else {
-                                    resolve(employees);
-                                }
-                            })
-                            .withFailureHandler(function(error) {
-                                console.error('Error fetching employee data from GAS:', error);
-                                console.warn('Falling back to local data');
-                                resolve(getFallbackData());
-                            })
-                            .getEmployeeData();
-                    });
-                } else {
-                    // Running in Next.js environment (local dev or production)
-                    console.log('Fetching data from Next.js API...');
-                    console.log('Environment: ', {
-                        NODE_ENV: window.NODE_ENV || "production",
-                        isLocalDev,
-                        isGAS: false
-                    });
-
-                    const response = await axios.get('/api/employees', {
-                        timeout: 10000, // 10 second timeout
-                    });
-
-                    console.log("response: ", response);
-
-                    const employees = response.data;
-
-                    if (!employees || !Array.isArray(employees) || employees.length === 0) {
-                        console.warn('No employee data received from API, using fallback data');
-                        return getFallbackData();
-                    }
-
-                    console.log(`Successfully loaded ${employees.length} employees from Next.js API`);
-                    return employees;
-                }
-            } catch (error) {
-                console.error('Error fetching employee data:', error);
-                console.warn('Falling back to local data');
-                return getFallbackData();
-            }
         }
 
         // Fallback data function (placeholder)
@@ -394,27 +320,17 @@
             return [];
         }
 
-        async                function loadData() {
-          try {
-            const employees = await fetchEmployeeData();
-            const organizedData = organizeEmployeeData(employees);
-            const filteredDivisions = organizedData?.divisions?.filter(div => !['CIO', 'DDCIO1', 'DDCIO2'].includes(div.name?.toUpperCase())) || [];
-            setOrgData({
-              cio: organizedData.cio,
-              deputyCIO: organizedData.deputyCIO,
-              divisions: filteredDivisions
-            });
-            loading = false;
-            if (filteredDivisions.length > 0) {
-              activeDivision = 0;
-              activeDivisions = []; // Reset multiple divisions when data loads
-              activeDeputy = null; // Reset active deputy when data loads
-            }
-          } catch (err) {
-            error = err.message;
-            loading = false;
-          }
-        });
+        async function loadData() {
+            try {
+                const employees = await fetchEmployeeData();
+                const organizedData = organizeEmployeeData(employees);
+                const filteredDivisions = organizedData?.divisions?.filter(div => !['CIO', 'DDCIO1', 'DDCIO2'].includes(div.name?.toUpperCase())) || [];
+
+                setOrgData({
+                    cio: organizedData.cio,
+                    deputyCIO: organizedData.deputyCIO,
+                    divisions: filteredDivisions
+                });
 
                 hideLoading();
                 document.getElementById('main-app').classList.remove('hidden');
@@ -422,19 +338,23 @@
 
                 if (filteredDivisions.length > 0) {
                     activeDivision = 0;
-                    activeDivisions = []; // Reset multiple divisions when data loads
-                    activeDeputy = null; // Reset active deputy when data loads
+                    activeDivisions = [];
+                    activeDeputy = null;
                     renderDivisionContent();
                 }
             } catch (err) {
                 showError(err.message);
             }
-        }                function getEmploymentStatus(employee) {
-          const federalCodes = ['GS', 'FED', 'FEDERAL'];
-          const status = employee.empl_code || '';
-          return federalCodes.some(code => status.toUpperCase().includes(code)) ? 'federal' : 'contractor';
-        }                function isManager(employee) {
-          return employee.title && (employee.title.toLowerCase().includes('director') || employee.title.toLowerCase().includes('manager') || employee.title.toLowerCase().includes('lead') || employee.title.toLowerCase().includes('chief') || employee.title.toLowerCase().includes('deputy'));
+        }
+
+        function getEmploymentStatus(employee) {
+            const federalCodes = ['GS', 'FED', 'FEDERAL'];
+            const status = employee.empl_code || '';
+            return federalCodes.some(code => status.toUpperCase().includes(code)) ? 'federal' : 'contractor';
+        }
+
+        function isManager(employee) {
+          return employee.title && (employee.title.toLowerCase().includes('director') || employee.title.toLowerCase().includes('manager') || employee.title.toLowerCase().includes('supervisory it specialist') || employee.title.toLowerCase().includes('lead') || employee.title.toLowerCase().includes('chief') || employee.title.toLowerCase().includes('deputy'));
         }
 
         // Helper functions
@@ -479,9 +399,12 @@
                     return `
                         <button
                             type="button"
-                            class="hover:none focus:outline-none px-2 py-1 rounded ${
-                                activeDeputy === idx ? 'bg-nmfs-blue text-white' : 'bg-transparent text-gray-900'
-                            } ${isOwner ? 'border border-nmfs-blue bg-blue-50 text-nmfs-blue' : ''}"
+                            class="hover:none focus:outline-none px-2 py-1 rounded border-2"
+                            style="${
+                                activeDeputy === idx
+                                    ? 'border-color: var(--primary); background: var(--light-accent); color: var(--foreground);'
+                                    : 'border-color: transparent; background: transparent; color: var(--foreground);'
+                            } ${isOwner ? 'border-color: var(--foreground) !important; background: var(--secondary) !important; color: var(--foreground) !important;' : ''}"
                             onclick="handleDeputyClick(${idx})"
                         >
                             ${dep.firstName} ${dep.lastName}
@@ -505,10 +428,11 @@
             tabsContainer.innerHTML = orgData.divisions.map((division, index) =>
                 `<button
                     onclick="setActiveDivision(${index})"
-                    class="px-4 py-2 text-sm font-medium rounded ${
+                    class="px-4 py-2 text-sm font-medium rounded cursor-pointer"
+                    style="${
                         activeDivision === index || activeDivisions.includes(index)
-                            ? 'bg-nmfs-blue text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'background: var(--primary); color: white;'
+                            : 'background: var(--secondary); color: var(--foreground);'
                     }"
                 >
                     ${division.name}
@@ -528,7 +452,7 @@
                     if (!division) return;
 
                     content += `
-                        <div class="border-b border-gray-200 last:border-b-0 pb-6 last:pb-0">
+                        <div class="pb-6 last:pb-0" style="border-bottom: 1px solid var(--border);">
                             ${renderSingleDivision(division)}
                         </div>`;
                 });
@@ -551,7 +475,7 @@
             let content = `
                 <div>
                     <!-- Division Title -->
-                    <h2 class="text-xl font-bold text-gray-900 mb-6">
+                    <h2 class="text-xl font-bold mb-6" style="color: var(--foreground)">
                         ${division.name}
                     </h2>`;
 
@@ -562,15 +486,15 @@
                         ${division.directors.map(director => {
                             return `
                                 <div class="flex items-center gap-2 mb-2">
-                                    <span class="font-medium text-gray-900">
+                                    <span class="font-medium" style="color: var(--foreground)">
                                         ${director.firstName} ${director.lastName}
                                     </span>
-                                    <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+                                    <span class="px-2 py-1 text-xs rounded" style="background: var(--secondary); color: var(--foreground)">
                                         Director
                                     </span>
                                 </div>`;
                         }).join('')}
-                        <div class="border-b border-gray-200 mt-4"></div>
+                        <div class="mt-4" style="border-bottom: 1px solid var(--border)"></div>
                     </div>`;
             }
 
@@ -581,8 +505,8 @@
                     <div class="flex flex-wrap gap-6 mb-6">
                         ${programs.map(program => {
                             let programContent = `
-                                <div class="min-w-[220px] bg-gray-50 rounded-lg shadow-sm p-4 flex-1">
-                                    <h3 class="text-base font-medium text-gray-800 mb-3 text-center">
+                                <div class="min-w-[220px] bg-white rounded-lg shadow-sm p-4 flex-1">
+                                    <h3 class="text-base font-medium mb-3 text-center" style="color: var(--foreground)">
                                         ${program.name}
                                     </h3>
                                     <div class="space-y-1">`;
@@ -595,15 +519,15 @@
 
                                     return `
                                         <div class="flex items-center gap-2 ${employeeIsManager ? '' : 'pl-6'}">
-                                            <span class="text-sm text-gray-700 ${employeeIsManager ? 'font-bold' : ''}">
+                                            <span class="text-sm ${employeeIsManager ? 'font-bold' : ''}" style="color: var(--foreground)">
                                                 ${employee.firstName} ${employee.lastName}
                                             </span>
                                             ${employeeIsManager ?
-                                                '<span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">Manager</span>' :
+                                                '<span class="px-2 py-1 text-xs rounded" style="background: var(--accent); color: var(--foreground)">Manager</span>' :
                                                 ''
                                             }
                                             ${employmentStatus === 'federal' ?
-                                                '<span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">Federal</span>' :
+                                                '<span class="px-2 py-1 text-xs rounded" style="background: var(--light-accent); color: var(--foreground)">Federal</span>' :
                                                 ''
                                             }
                                         </div>`;
@@ -620,11 +544,12 @@
 
             // Division Staff (no program)
             if (division.employees && division.employees.length > 0) {
-                const hasProgramsClass = programs.length > 0 ? "mt-6 pt-6 border-t border-gray-200" : "";
+                const hasProgramsClass = programs.length > 0 ? "mt-6 pt-6" : "";
+                const hasProgramsStyle = programs.length > 0 ? "border-top: 1px solid var(--border);" : "";
                 content += `
-                    <div class="${hasProgramsClass}">
-                        <h3 class="text-base font-medium text-gray-800 mb-3">
-                            UNSPECIFIED
+                    <div class="${hasProgramsClass}" style="${hasProgramsStyle}">
+                        <h3 class="text-base font-medium mb-3" style="color: var(--foreground)">
+                            UNSPECIFIED PROGRAM
                         </h3>
                         <div class="space-y-1 pl-4">
                             ${division.employees.map(employee => {
@@ -633,15 +558,15 @@
 
                                 return `
                                     <div class="flex items-center gap-2">
-                                        <span class="text-sm text-gray-700">
+                                        <span class="text-sm" style="color: var(--foreground)">
                                             ${employee.firstName} ${employee.lastName}
                                         </span>
                                         ${employeeIsManager ?
-                                            '<span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">Manager</span>' :
+                                            '<span class="px-2 py-1 text-xs rounded" style="background: var(--primary-dark); color: white">Manager</span>' :
                                             ''
                                         }
                                         ${employmentStatus === 'federal' ?
-                                            '<span class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">federal</span>' :
+                                            '<span class="px-2 py-1 text-xs rounded" style="background: var(--primary-dark); color: white">Federal</span>' :
                                             ''
                                         }
                                     </div>`;
